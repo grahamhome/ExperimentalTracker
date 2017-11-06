@@ -1,4 +1,6 @@
+package code;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import javafx.application.Application;
@@ -34,10 +36,23 @@ public class ExperimentalTracker extends Application {
 		File selection = showConfigSelector();
 		if (selection != null) {
 			try {
-				ConfigImporter.run(selection);
-			} catch (ConfigImporter.ConfigException ex) {
-				new Alert(AlertType.ERROR, ex.getMessage(), ButtonType.OK).showAndWait();
-			} catch (IOException ex) {
+				ExperimentModel model = ConfigImporter.run(selection);
+				if (!ConfigImporter.errors.isEmpty()) {
+					StringBuilder errors = new StringBuilder();
+					for (String error : ConfigImporter.errors) {
+						if (errors.length() > 0) {
+							errors.append("\n");
+						}
+						errors.append(error);
+					}
+					new Alert(AlertType.ERROR, errors.toString(), ButtonType.OK).showAndWait();
+				} else {
+					// TODO: Prompt the user to modify or preview config
+				}
+			} catch (FileNotFoundException e) {
+				new Alert(AlertType.ERROR, "No configuration file was found in the selected directory. Please try a different directory.", ButtonType.OK).showAndWait();
+			
+			} catch (IOException e) {
 				new Alert(AlertType.ERROR, "An error occurred while reading the configuration file. Please try again.", ButtonType.OK).showAndWait();
 			}
 		}
