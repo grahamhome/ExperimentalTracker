@@ -31,7 +31,7 @@ public class ConfigImporter {
 	private static final String MOVER_PREFIX = "MV: ";
 	private static final String INTERRUPTION_PREFIX = "INT: ";
 	private static final String QUERY_PREFIX = "QUE: ";
-	private static final String IMG_DIR = "images/";
+	private static final String IMG_DIR = "/images/";
 	private static final List<String> VALID_IMG_TYPES = Arrays.asList(new String[] {"jpg", "jpeg", "png" });
 	
 	private static final HashMap<Integer, String> configLines = new HashMap<>();
@@ -41,12 +41,14 @@ public class ConfigImporter {
 	private static File directory;
 	
 	/**
-	 * Given a path to an experimental configuration directory,
-	 * imports the configuration and creates a data model from it.
+	 * Given a path to a configuration directory, imports 
+	 * the configuration and creates a data model from it.
 	 * @param configPath : The path to the configuration.
 	 * @return : An instance of ExperimentModel containing the
-	 * values imported from the specified configuration.
-	 * @throws ConfigException if a malformed configuration is encountered.
+	 * values imported from the specified configuration, or null if 
+	 * any errors were encountered in the config file.
+	 * @throws FileNotFound exception if the config file is not found in
+	 * the directory provided.
 	 * @throws IOException if something goes wrong while reading the file.
 	 */
 	public static ExperimentModel run(File configDirectory) throws FileNotFoundException, IOException {
@@ -87,8 +89,11 @@ public class ConfigImporter {
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
 		model.duration = parseTime(configLines.get(lineNumber = lineNumbers.next()));
 		
-		String line = configLines.get(lineNumber = lineNumbers.next());
-		while (line != null && (line.startsWith(WAYPOINT_PREFIX) || line.startsWith(CONNECTOR_PREFIX))) {
+		String line = "";
+		if (lineNumbers.hasNext()) {
+			line = configLines.get(lineNumber = lineNumbers.next());
+		}
+		while (line.startsWith(WAYPOINT_PREFIX) || line.startsWith(CONNECTOR_PREFIX)) {
 			if (line.startsWith(WAYPOINT_PREFIX)) {
 				String[] waypointData = line.replace(WAYPOINT_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (waypointData.length != 5) { 
@@ -168,17 +173,19 @@ public class ConfigImporter {
 					}
 				}
 			}
-			line = configLines.get(lineNumber = lineNumbers.next());
+			if (lineNumbers.hasNext()) {
+				line = configLines.get(lineNumber = lineNumbers.next());
+			} else {
+				line = "";
+			}
 		}
-		line = configLines.get(lineNumber = lineNumbers.next());
-		while (line != null && (line.startsWith(MOVER_PREFIX))) {
-			String[] moverData = line.replace(MOVER_PREFIX, "").split(SECONDARY_SEPARATOR);
+		while (line.startsWith(MOVER_PREFIX)) {
+			String[] moverData = line.replace(MOVER_PREFIX, "").split(PRIMARY_SEPARATOR);
 			if (moverData.length != 7) {
 				report("Mover data must contain exactly 7 comma-separated values");
 			} else {
 				Mover mover = new Mover();
 				boolean valid = true;
-				Shape shape = Shape.getShape(moverData[0]);
 				if ((mover.shape = Shape.getShape(moverData[0])) == Shape.NO_MATCH) {
 					report("Invalid shape name");
 					valid = false;
@@ -241,10 +248,14 @@ public class ConfigImporter {
 					}
 				}
 			}
-			line = configLines.get(lineNumber = lineNumbers.next());
+			if (lineNumbers.hasNext()) {
+				line = configLines.get(lineNumber = lineNumbers.next());
+			} else {
+				line = "";
+			}
 		}
-		line = configLines.get(lineNumber = lineNumbers.next());
-		while (line != null && (line.startsWith(INTERRUPTION_PREFIX) || line.startsWith(QUERY_PREFIX))) {
+		
+		while (line.startsWith(INTERRUPTION_PREFIX) || line.startsWith(QUERY_PREFIX)) {
 			if (line.startsWith(INTERRUPTION_PREFIX)) {
 				String[] interruptionData = line.replace(INTERRUPTION_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (interruptionData.length != 3) {
@@ -294,7 +305,18 @@ public class ConfigImporter {
 						default: report("Query format must be either \"audio\" or \"visual\""); valid = false;
 					}
 					query.startTime = parseTime(queryData[2]);
-					query.duration = parseTime(queryData[3]);
+					String duration = queryData[3];
+					if (duration.equals("wait")) {
+						query.wait = true;
+					} else if (duration.equals("none")) {
+						if (query.visual) {
+							report("A query duration of \"none\" may only be used for audio queries");
+						} else {
+							query.duration = 0;
+						}
+					} else {
+						query.duration = parseTime(queryData[3]);
+					}
 					if (query.startTime == -1 || query.duration == -1) {
 						valid = false;
 					} else if (query.startTime + query.duration >= model.duration) {
@@ -306,11 +328,14 @@ public class ConfigImporter {
 					}
 				}
 			}
-			
-			line = configLines.get(lineNumber = lineNumbers.next());
+			if (lineNumbers.hasNext()) {
+				line = configLines.get(lineNumber = lineNumbers.next());
+			} else {
+				line = "";
+			}
 		}
 		if (lineNumbers.hasNext()) {
-			report("Additional lines detected after interruption/query tasks, which violates config file specification");
+			report("Unrecognized configuration data detected after interruption/query tasks");
 		}
 		return (errors.isEmpty() ? model : null);
 	}
@@ -331,7 +356,7 @@ public class ConfigImporter {
 					report("Hours value must be greater than or equal to 0");
 					return -1;
 				}
-				if ((minutes = Integer.parseInt(timeValues[1])) < 0 || minutes > 0) {
+				if ((minutes = Integer.parseInt(timeValues[1])) < 0 || minutes > 60) {
 					report("Minutes value must be between 0 and 60");
 					return -1;
 				}
@@ -371,7 +396,7 @@ public class ConfigImporter {
 	 */
 	private static void readLines() throws FileNotFoundException, IOException {
 		FileReader reader;
-		reader = new FileReader(directory + CONFIG_FILE_NAME);
+		reader = new FileReader(directory + "/" + CONFIG_FILE_NAME);
 		BufferedReader bReader = new BufferedReader(reader);
 		int lineNumber = 0;
 		String line = bReader.readLine();

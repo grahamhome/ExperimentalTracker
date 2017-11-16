@@ -26,7 +26,6 @@ public class ExperimentModel {
 		SQUARE,
 		TRIANGLE,
 		STAR,
-		DEFAULT,
 		NO_MATCH;
 		
 		public static Shape getShape(String shapeName) {
@@ -35,7 +34,6 @@ public class ExperimentModel {
 				case "square" : return SQUARE;
 				case "triangle" : return TRIANGLE;
 				case "star" : return STAR;
-				case "" : return DEFAULT;
 				default : return NO_MATCH;
 			}
 		}
@@ -110,7 +108,7 @@ public class ExperimentModel {
 		public Shape shape;
 		public int angle, leaderLength, numDots;
 		public float speed;
-		public ArrayList<Waypoint> pathPoints;
+		public ArrayList<Waypoint> pathPoints = new ArrayList<>();
 		
 		public static final List<Integer> labelAngles = Arrays.asList(new Integer[] {0, 45, 90, 135, 180, 225, 270, 315, 360});
 		public static final int maxLeaderLength = 10;
@@ -143,5 +141,6 @@ public class ExperimentModel {
 		public boolean visual; // If false: audio
 		public double startTime;
 		public double duration;
+		public boolean wait = false;
 	}
 }

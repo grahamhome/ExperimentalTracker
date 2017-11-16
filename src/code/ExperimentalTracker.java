@@ -7,8 +7,11 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ScrollPane.ScrollBarPolicy;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.StackPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
@@ -38,15 +41,19 @@ public class ExperimentalTracker extends Application {
 			try {
 				ExperimentModel model = ConfigImporter.run(selection);
 				if (!ConfigImporter.errors.isEmpty()) {
-					StringBuilder errors = new StringBuilder();
+					StringBuilder errors = new StringBuilder("The following errors were encountered in the selected configuration file:");
 					for (String error : ConfigImporter.errors) {
-						if (errors.length() > 0) {
-							errors.append("\n");
-						}
+						errors.append("\n");
 						errors.append(error);
 					}
-					new Alert(AlertType.ERROR, errors.toString(), ButtonType.OK).showAndWait();
+					TextArea errorDisplay = new TextArea();
+					errorDisplay.setEditable(false);
+					errorDisplay.setText(errors.toString());
+					Alert alert = new Alert(AlertType.ERROR, null, ButtonType.OK);
+					alert.getDialogPane().setContent(errorDisplay);
+					alert.showAndWait();
 				} else {
+					new Alert(AlertType.CONFIRMATION, "Looks good!", ButtonType.OK).showAndWait();
 					// TODO: Prompt the user to modify or preview config
 				}
 			} catch (FileNotFoundException e) {
