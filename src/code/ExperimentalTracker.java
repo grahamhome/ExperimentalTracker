@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import javafx.application.Application;
+import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -53,8 +54,7 @@ public class ExperimentalTracker extends Application {
 					alert.getDialogPane().setContent(errorDisplay);
 					alert.showAndWait();
 				} else {
-					new Alert(AlertType.CONFIRMATION, "Looks good!", ButtonType.OK).showAndWait();
-					// TODO: Prompt the user to modify or preview config
+					TrackingActivity.launch(new String());
 				}
 			} catch (FileNotFoundException e) {
 				new Alert(AlertType.ERROR, "No configuration file was found in the selected directory. Please try a different directory.", ButtonType.OK).showAndWait();
@@ -75,7 +75,7 @@ public class ExperimentalTracker extends Application {
 	}
 	
 	/**
-	 * Starts the user interface.
+	 * Starts the user interface for configuration importing.
 	 */
 	@Override
 	public void start(Stage primaryStage) throws Exception {
@@ -85,13 +85,5 @@ public class ExperimentalTracker extends Application {
 		showStartupScreen();
 		stage.setScene(new Scene(root, 300, 250));
 		stage.show();
-	}
-	
-	/**
-	 * Executes the program.
-	 * @param args : not used
-	 */
-	public static void main(String[] args) {
-		launch(args);
 	}
 }
