@@ -90,7 +90,7 @@ public class ConfigImportActivity extends Application {
 		stage.setScene(new Scene(root, 300, 250));
 		stage.show();
 	}
-	
+
 	/**
 	 * Launches this activity.
 	 */
