@@ -76,8 +76,9 @@ public class ConfigImporter {
 			report("Two map dimension values are required"); 
 		} else {
 			try {
-				model.x = Float.parseFloat(dimensions[0]);
-				model.y = Float.parseFloat(dimensions[1]);
+				if (((model.x = Float.parseFloat(dimensions[0])) < 0) || (model.y = Float.parseFloat(dimensions[1])) < 0) {
+					report("Map dimensions must be greater than 0");
+				}
 			} catch (NumberFormatException e) { report("One or more map dimension values are not a number"); }
 		}
 		

@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import javafx.application.Application;
+import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -23,7 +24,7 @@ import javafx.stage.Stage;
  * @author Graham Home <grahamhome333@gmail.com>
  *
  */
-public class ExperimentalTracker extends Application {
+public class ConfigImportActivity extends Application {
 	
 	private Stage stage;
 	private StackPane root;
@@ -35,7 +36,7 @@ public class ExperimentalTracker extends Application {
 		return selection;
 	}
 	
-	private void importConfiguration() {
+	private void importConfiguration() throws Exception {
 		File selection = showConfigSelector();
 		if (selection != null) {
 			try {
@@ -53,8 +54,7 @@ public class ExperimentalTracker extends Application {
 					alert.getDialogPane().setContent(errorDisplay);
 					alert.showAndWait();
 				} else {
-					new Alert(AlertType.CONFIRMATION, "Looks good!", ButtonType.OK).showAndWait();
-					// TODO: Prompt the user to modify or preview config
+					new TrackingActivity(model).start(stage);
 				}
 			} catch (FileNotFoundException e) {
 				new Alert(AlertType.ERROR, "No configuration file was found in the selected directory. Please try a different directory.", ButtonType.OK).showAndWait();
@@ -65,33 +65,36 @@ public class ExperimentalTracker extends Application {
 		}
 	}
 	
-	private void showStartupScreen() {
+	private void buildStartupScreen() {
 		Button importConfigBtn = new Button();
 		importConfigBtn.setText("Select Existing Configuration");
 		importConfigBtn.setOnAction((e) -> {
-			importConfiguration();
+			try {
+				importConfiguration();
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
 		});
 		root.getChildren().add(importConfigBtn);
 	}
 	
 	/**
-	 * Starts the user interface.
+	 * Starts the user interface for configuration importing.
 	 */
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		stage = primaryStage;
 		stage.setTitle("MIT Tracker - Configuration");
 		root = new StackPane();
-		showStartupScreen();
+		buildStartupScreen();
 		stage.setScene(new Scene(root, 300, 250));
 		stage.show();
 	}
 	
 	/**
-	 * Executes the program.
-	 * @param args : not used
+	 * Launches this activity.
 	 */
-	public static void main(String[] args) {
-		launch(args);
+	public static void run() {
+		launch();
 	}
 }
