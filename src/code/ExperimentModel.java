@@ -17,7 +17,7 @@ public class ExperimentModel {
 	public double duration;
 	public ArrayList<Waypoint> waypoints = new ArrayList<>();
 	public ArrayList<Connector> connectors = new ArrayList<>();
-	public ArrayList<Mover> movers = new ArrayList<>();
+	public ArrayList<MovingObject> objects = new ArrayList<>();
 	public ArrayList<Interruption> interruptions = new ArrayList<>();
 	public ArrayList<Query> queries = new ArrayList<>();
 	
@@ -103,7 +103,7 @@ public class ExperimentModel {
 		}
 	}
 	
-	public static class Mover {
+	public static class MovingObject {
 		public String label;
 		public Shape shape;
 		public int angle, leaderLength, numDots;
@@ -116,8 +116,8 @@ public class ExperimentModel {
 		
 		@Override
 		public boolean equals(Object moverToCompare) {
-			if (!(moverToCompare instanceof Mover)) return false;
-			Mover mover = (Mover) moverToCompare;
+			if (!(moverToCompare instanceof MovingObject)) return false;
+			MovingObject mover = (MovingObject) moverToCompare;
 			if (mover.speed != speed || mover.pathPoints.size() != pathPoints.size()) return false;
 			Iterator<Waypoint> pathPointsIterator1 = mover.pathPoints.iterator();
 			Iterator<Waypoint> pathPointsIterator2 = pathPoints.iterator();

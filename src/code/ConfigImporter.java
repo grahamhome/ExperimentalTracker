@@ -185,7 +185,7 @@ public class ConfigImporter {
 			if (moverData.length != 7) {
 				report("Mover data must contain exactly 7 comma-separated values");
 			} else {
-				Mover mover = new Mover();
+				MovingObject mover = new MovingObject();
 				boolean valid = true;
 				if ((mover.shape = Shape.getShape(moverData[0])) == Shape.NO_MATCH) {
 					report("Invalid shape name");
@@ -193,8 +193,8 @@ public class ConfigImporter {
 				}
 				mover.label = moverData[1];
 				try {
-					if (!Mover.labelAngles.contains((mover.angle = Integer.parseInt(moverData[2])))) {
-						report("Label angle must be one of the following values: " + Mover.labelAngles.toString().replaceAll("\\[|\\]", ""));
+					if (!MovingObject.labelAngles.contains((mover.angle = Integer.parseInt(moverData[2])))) {
+						report("Label angle must be one of the following values: " + MovingObject.labelAngles.toString().replaceAll("\\[|\\]", ""));
 						valid = false;
 					}
 				} catch (NumberFormatException e) {
@@ -202,16 +202,16 @@ public class ConfigImporter {
 					valid = false;
 				}
 				try {
-					if ((mover.leaderLength = Integer.parseInt(moverData[3])) < 0 || mover.leaderLength > Mover.maxLeaderLength) {
-						report("Leader line length must be between 0 and " + Mover.maxLeaderLength);
+					if ((mover.leaderLength = Integer.parseInt(moverData[3])) < 0 || mover.leaderLength > MovingObject.maxLeaderLength) {
+						report("Leader line length must be between 0 and " + MovingObject.maxLeaderLength);
 						valid = false;
 					}
 				} catch (NumberFormatException e) {
 					report("Leader line length must be a numeric value");
 				}
 				try {
-					if ((mover.numDots = Integer.parseInt(moverData[4])) < 0 || mover.numDots > Mover.maxDots) {
-						report("Number of history dots must be between 0 and " + Mover.maxDots);
+					if ((mover.numDots = Integer.parseInt(moverData[4])) < 0 || mover.numDots > MovingObject.maxDots) {
+						report("Number of history dots must be between 0 and " + MovingObject.maxDots);
 						valid = false;
 					}
 				} catch (NumberFormatException e) {
@@ -242,10 +242,10 @@ public class ConfigImporter {
 					valid = false;
 				}
 				if (valid) {
-					if (model.movers.contains(mover)) {
+					if (model.objects.contains(mover)) {
 						report("A mover with the same speed and path already exists");
 					} else {
-						model.movers.add(mover);
+						model.objects.add(mover);
 					}
 				}
 			}
