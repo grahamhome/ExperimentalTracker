@@ -34,7 +34,7 @@ public class ConfigImporter {
 	private static final String IMG_DIR = "\\images\\";
 	private static final List<String> VALID_IMG_TYPES = Arrays.asList(new String[] {"jpg", "jpeg", "png" });
 	
-	private static final HashMap<Integer, String> configLines = new HashMap<>();
+	private static HashMap<Integer, String> configLines = new HashMap<>();
 	public static ArrayList<String> errors = new ArrayList<>();
 	private static int lineNumber = 0;
 	
@@ -424,6 +424,7 @@ public class ConfigImporter {
 	 * @throws IOException : If an error occurs while reading the config file which prevents it from being read.
 	 */
 	private static void readLines() throws FileNotFoundException, IOException {
+		configLines = new HashMap<>();
 		FileReader reader;
 		reader = new FileReader(directory + "/" + CONFIG_FILE_NAME);
 		BufferedReader bReader = new BufferedReader(reader);

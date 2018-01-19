@@ -99,9 +99,10 @@ public class TrackingActivity extends Application {
 			}
 				
 			// Adjust map dimensions to allow waypoints & objects to be placed correctly
-			mapWidth -= (FONT_SIZE*3/4);
+			mapWidth -= FONT_SIZE;
 			mapHeight -= FONT_SIZE;
-			mapOffsetY += FONT_SIZE;
+			mapOffsetY += FONT_SIZE/2;
+			mapOffsetX += FONT_SIZE/2;
 		}
 		
 		private void drawWaypoints() {
@@ -134,7 +135,7 @@ public class TrackingActivity extends Application {
 					y = newY;
 				}
 				PathTransition transition = new PathTransition();
-				transition.setDuration(Duration.millis(2000*i)); // TODO: replace with object speed/object distance
+				transition.setDuration(Duration.millis(i%2==0 ? 16000 : 12000)); // TODO: replace with object speed/object distance
 				transition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
 				transition.setPath(path);
 				transition.setNode(text);
@@ -163,6 +164,13 @@ public class TrackingActivity extends Application {
 			t.setBoundsType(TextBoundsType.VISUAL);
 			t.setWrappingWidth(200);
 			root.getChildren().add(t);
+			Path p = new Path();
+			p.getElements().add(new MoveTo(0,0));
+			p.getElements().add(new LineTo(x,y));
+			PathTransition pt = new PathTransition();
+			pt.setPath(p);
+			pt.setNode(t);
+			pt.play();
 			return t;
 		}
 	}
