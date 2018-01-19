@@ -165,9 +165,10 @@ public class TrackingActivity extends Application {
 			t.setWrappingWidth(200);
 			root.getChildren().add(t);
 			Path p = new Path();
-			p.getElements().add(new MoveTo(0,0));
+			p.getElements().add(new MoveTo(x-1,y-1));
 			p.getElements().add(new LineTo(x,y));
 			PathTransition pt = new PathTransition();
+			pt.setDuration(Duration.millis(1));
 			pt.setPath(p);
 			pt.setNode(t);
 			pt.play();
