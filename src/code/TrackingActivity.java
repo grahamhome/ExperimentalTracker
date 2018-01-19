@@ -43,6 +43,7 @@ public class TrackingActivity extends Application {
 	private double stageWidth, stageHeight, mapOffsetX, mapOffsetY, mapHeight, mapWidth;
 	private HashMap<Waypoint, Text> waypoints = new HashMap<>();
 	private static final int FONT_SIZE = 30; // Determines the size of the waypoints & moving objects
+	Font wingdings;
 	
 	public TrackingActivity(ExperimentModel model) {
 		this.model = model;
@@ -60,6 +61,7 @@ public class TrackingActivity extends Application {
 		bounds = Screen.getPrimary().getBounds();
 		stageWidth = bounds.getWidth();
 		stageHeight = bounds.getHeight();
+		wingdings = Font.loadFont("../wingding.ttf", 32);
 		map.drawMap();
 		stage.show();
 		map.drawWaypoints();
@@ -110,16 +112,15 @@ public class TrackingActivity extends Application {
 			// & add Wingdings support
 			Integer i = 1;
 			for (Waypoint waypoint: model.waypoints) {
-				waypoints.put(waypoint, drawText(waypoint.x, waypoint.y, (i++).toString().charAt(0)));
+				waypoints.put(waypoint, drawText(waypoint.x, waypoint.y, Character.toChars(9670)[0]));
 			}
 		}
 		
 		private void drawObjects() {
 			// TODO: use object name instead of integer, add import rule to ensure it's a single character
-			// & add Wingdings support
 			Integer i = 6;
 			for (MovingObject object : model.objects) {
-				Text text = drawText(object.pathPoints.get(0).x, object.pathPoints.get(0).y, (i++).toString().charAt(0));
+				Text text = drawText(object.pathPoints.get(0).x, object.pathPoints.get(0).y, Character.toChars(9992)[0]);
 				Path path = new Path();
 				path.getElements().add(new MoveTo(text.getX(), text.getY()));
 				double x = text.getX();
@@ -135,7 +136,7 @@ public class TrackingActivity extends Application {
 					y = newY;
 				}
 				PathTransition transition = new PathTransition();
-				transition.setDuration(Duration.millis(i%2==0 ? 16000 : 12000)); // TODO: replace with object speed/object distance
+				transition.setDuration(Duration.millis(i++%2==0 ? 24000 : 32000)); // TODO: replace with object speed/object distance
 				transition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
 				transition.setPath(path);
 				transition.setNode(text);
@@ -150,8 +151,12 @@ public class TrackingActivity extends Application {
 				path.getElements().add(new MoveTo(waypoints.get(connector.point1).getX(), waypoints.get(connector.point1).getY()));
 				path.getElements().add(new LineTo(waypoints.get(connector.point2).getX(), waypoints.get(connector.point2).getY()));
 				path.setStroke(connector.color);
-				path.setStrokeWidth(6);
+				path.setStrokeWidth(3);
 				root.getChildren().add(path);
+			}
+			// TODO: Do this better!
+			for (Text t : waypoints.values()) {
+				t.toFront();
 			}
 		}
 		
@@ -159,7 +164,7 @@ public class TrackingActivity extends Application {
 			x = (x*(mapWidth/model.x))+mapOffsetX;
 			y = (y*(mapHeight/model.y))+mapOffsetY;
 			Text t = new Text(x, y, (symbol).toString());
-			t.setFont(new Font(FONT_SIZE));
+			t.setFont(wingdings);
 			t.setFill(Color.WHITE);
 			t.setBoundsType(TextBoundsType.VISUAL);
 			t.setWrappingWidth(200);
