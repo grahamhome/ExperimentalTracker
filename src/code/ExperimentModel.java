@@ -14,6 +14,8 @@ public class ExperimentModel {
 	
 	public String name;
 	public float x, y, updateRate;
+	public javafx.scene.paint.Color mapColor = null;
+	public File mapImage = null;
 	public double duration;
 	public ArrayList<Waypoint> waypoints = new ArrayList<>();
 	public ArrayList<Connector> connectors = new ArrayList<>();
@@ -91,7 +93,7 @@ public class ExperimentModel {
 	public static class Connector {
 		public Waypoint point1, point2;
 		public int width;
-		public Color color;
+		public javafx.scene.paint.Color color;
 		
 		public static final int maxWidth = 10;
 		

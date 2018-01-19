@@ -2,13 +2,18 @@ package code;
 
 import java.util.HashMap;
 
+import code.ExperimentModel.Connector;
 import code.ExperimentModel.MovingObject;
 import code.ExperimentModel.Waypoint;
+import javafx.animation.Interpolator;
 import javafx.animation.PathTransition;
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.LineTo;
@@ -17,7 +22,6 @@ import javafx.scene.shape.Path;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 import javafx.scene.text.TextBoundsType;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -38,7 +42,7 @@ public class TrackingActivity extends Application {
 	private Rectangle2D bounds;
 	private double stageWidth, stageHeight, mapOffsetX, mapOffsetY, mapHeight, mapWidth;
 	private HashMap<Waypoint, Text> waypoints = new HashMap<>();
-	private static final int FONT_SIZE = 30;
+	private static final int FONT_SIZE = 30; // Determines the size of the waypoints & moving objects
 	
 	public TrackingActivity(ExperimentModel model) {
 		this.model = model;
@@ -59,8 +63,8 @@ public class TrackingActivity extends Application {
 		map.drawMap();
 		stage.show();
 		map.drawWaypoints();
+		map.drawConnectors();
 		map.drawObjects();
-		
 	}
 	
 	/**
@@ -68,8 +72,6 @@ public class TrackingActivity extends Application {
 	 *
 	 */
 	private class Map {
-		
-		private Rectangle map;
 		
 		private void drawMap() {
 			if (stageWidth > stageHeight) {
@@ -81,12 +83,25 @@ public class TrackingActivity extends Application {
 				mapOffsetX = stageWidth*0.01;
 				mapOffsetY = (stageHeight-mapHeight)/2;
 			}
-			Rectangle map = new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight);
-			map.setFill(Color.LIGHTBLUE);
-			root.getChildren().add(map);
+			if (model.mapColor != null) {
+				Rectangle map = new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight);
+				map.setFill(model.mapColor);
+				root.getChildren().add(map);
+			} else {
+				Image mapImage = new Image(model.mapImage.toURI().toString());
+				ImageView map = new ImageView(mapImage);
+				map.setPreserveRatio(true);
+				map.setFitWidth(mapWidth);
+				map.setFitHeight(mapHeight);
+				map.setX(mapOffsetX);
+				map.setY(mapOffsetY);
+				root.getChildren().add(map);
+			}
+				
 			// Adjust map dimensions to allow waypoints & objects to be placed correctly
-			mapWidth -= (FONT_SIZE*2/3);
+			mapWidth -= (FONT_SIZE*3/4);
 			mapHeight -= FONT_SIZE;
+			mapOffsetY += FONT_SIZE;
 		}
 		
 		private void drawWaypoints() {
@@ -106,24 +121,45 @@ public class TrackingActivity extends Application {
 				Text text = drawText(object.pathPoints.get(0).x, object.pathPoints.get(0).y, (i++).toString().charAt(0));
 				Path path = new Path();
 				path.getElements().add(new MoveTo(text.getX(), text.getY()));
-				for (int j=1; j<object.pathPoints.size(); j++) {
-					Waypoint waypoint = object.pathPoints.get(j);
-					path.getElements().add(new LineTo(waypoints.get(waypoint).getX(), waypoints.get(waypoint).getY()));
+				double x = text.getX();
+				double y = text.getY();
+				double distance = 0;
+				for (int j=1; j<object.pathPoints.size(); j++) { // TODO: Calculate distances correctly, and calibrate object positions
+					Waypoint waypoint = object.pathPoints.get(j); // also TODO: use concurrent transitions to build overall animation, possibly sequential transitions for individual animations
+					double newX = waypoints.get(waypoint).getX(); // also, also TODO: build up a hashmap of all paths between all points & use them to create animations rather than making duplicate paths?
+					double newY =  waypoints.get(waypoint).getY();
+					path.getElements().add(new LineTo(newX, newY));
+					distance += Math.sqrt(Math.pow((newX-x), 2) + Math.pow(newY-y, 2));
+					x = newX;
+					y = newY;
 				}
 				PathTransition transition = new PathTransition();
-				transition.setDuration(Duration.millis(8000)); //TODO: replace with object speed*object distance
+				transition.setDuration(Duration.millis(2000*i)); // TODO: replace with object speed/object distance
 				transition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
 				transition.setPath(path);
 				transition.setNode(text);
+				transition.setInterpolator(Interpolator.LINEAR);
 				transition.play();
+			}
+		}
+		
+		private void drawConnectors() {
+			for (Connector connector: model.connectors) {
+				Path path = new Path();
+				path.getElements().add(new MoveTo(waypoints.get(connector.point1).getX(), waypoints.get(connector.point1).getY()));
+				path.getElements().add(new LineTo(waypoints.get(connector.point2).getX(), waypoints.get(connector.point2).getY()));
+				path.setStroke(connector.color);
+				path.setStrokeWidth(6);
+				root.getChildren().add(path);
 			}
 		}
 		
 		private Text drawText(double x, double y, Character symbol) {
 			x = (x*(mapWidth/model.x))+mapOffsetX;
-			y = (y*(mapHeight/model.y))+mapOffsetY+FONT_SIZE*4/5;
+			y = (y*(mapHeight/model.y))+mapOffsetY;
 			Text t = new Text(x, y, (symbol).toString());
 			t.setFont(new Font(FONT_SIZE));
+			t.setFill(Color.WHITE);
 			t.setBoundsType(TextBoundsType.VISUAL);
 			t.setWrappingWidth(200);
 			root.getChildren().add(t);

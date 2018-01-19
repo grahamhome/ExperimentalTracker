@@ -31,7 +31,7 @@ public class ConfigImporter {
 	private static final String MOVER_PREFIX = "MV: ";
 	private static final String INTERRUPTION_PREFIX = "INT: ";
 	private static final String QUERY_PREFIX = "QUE: ";
-	private static final String IMG_DIR = "/images/";
+	private static final String IMG_DIR = "\\images\\";
 	private static final List<String> VALID_IMG_TYPES = Arrays.asList(new String[] {"jpg", "jpeg", "png" });
 	
 	private static final HashMap<Integer, String> configLines = new HashMap<>();
@@ -71,17 +71,44 @@ public class ConfigImporter {
 		}
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
-		String[] dimensions = configLines.get(lineNumber = lineNumbers.next()).split(PRIMARY_SEPARATOR);
-		if (dimensions.length != 2) { 
-			report("Two map dimension values are required"); 
+		String[] mapValues = configLines.get(lineNumber = lineNumbers.next()).split(PRIMARY_SEPARATOR);
+		boolean valid = true;
+		if (mapValues.length != 3) { 
+			report("Map data must contain 3 values"); 
+			valid = false;
 		} else {
 			try {
-				if (((model.x = Float.parseFloat(dimensions[0])) < 0) || (model.y = Float.parseFloat(dimensions[1])) < 0) {
+				if (((model.x = Float.parseFloat(mapValues[0])) < 0) || (model.y = Float.parseFloat(mapValues[1])) < 0) {
 					report("Map dimensions must be greater than 0");
+					valid = false;
 				}
 			} catch (NumberFormatException e) { report("One or more map dimension values are not a number"); }
+			if (mapValues[2].startsWith("#") ) {
+				try {
+					model.mapColor = javafx.scene.paint.Color.valueOf(mapValues[2]);
+				} catch (IllegalArgumentException e) {
+					report("Map color value is not a valid color code");
+					valid = false;
+				}
+			} else {
+				String imageName = mapValues[2];
+				if (!(model.mapImage = new File(directory.toString() + IMG_DIR + imageName)).exists() || !model.mapImage.isFile()) {
+					report("Image file " + imageName + " not found in the " + IMG_DIR + " folder of this configuration folder");
+					valid = false;
+				} else {
+					int i = imageName.lastIndexOf(".");
+					String ext = null;
+					if (i != 0) {
+						ext = imageName.substring(i+1).toLowerCase();
+					}
+					if (!VALID_IMG_TYPES.contains(ext)) {
+						report("Image files must be in one of the following formats: " + VALID_IMG_TYPES.toString().replaceAll("\\[|\\]", ""));
+						valid = false;
+					}
+				}
+			}
 		}
-		
+		if (!valid) { return null; } // Continuing with an invalid map would cause a lot of false positive "errors"
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
 		try {
 			model.updateRate = Float.parseFloat(configLines.get(lineNumber = lineNumbers.next()));
@@ -98,10 +125,9 @@ public class ConfigImporter {
 			if (line.startsWith(WAYPOINT_PREFIX)) {
 				String[] waypointData = line.replace(WAYPOINT_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (waypointData.length != 5) { 
-					report("Waypoint data must contain exactly 5 comma-separated values"); 
+					report("Waypoint data must contain exactly 5 values"); 
 				} else {
 					Waypoint waypoint = new Waypoint();
-					boolean valid = true;
 					if (model.getWaypoint((waypoint.name = waypointData[0])) != null) {
 						report("A waypoint with this name already exists");
 						valid = false;
@@ -139,10 +165,10 @@ public class ConfigImporter {
 			} else {
 				String[] connectorData = line.replace(CONNECTOR_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (connectorData.length != 4) { 
-					report("Connector data must contain exactly 4 comma-separated values"); 
+					report("Connector data must contain exactly 4 values"); 
 				} else {
 					Connector connector = new Connector();
-					boolean valid = true;
+					valid = true;
 					if ((connector.point1 = model.getWaypoint(connectorData[0])) == null 
 							|| (connector.point2 = model.getWaypoint(connectorData[1])) == null) 
 					{
@@ -152,8 +178,10 @@ public class ConfigImporter {
 						report("Connector must connect two unique waypoints"); 
 						valid = false;
 					}
-					if ((connector.color = Color.getColor(connectorData[3])) == Color.NO_MATCH) {
-						report("Invalid color option");
+					try {
+						connector.color = javafx.scene.paint.Color.valueOf(connectorData[3]);
+					} catch (IllegalArgumentException e) {
+						report("Connector color value is not a valid color code");
 						valid = false;
 					}
 					try {
@@ -183,10 +211,10 @@ public class ConfigImporter {
 		while (line.startsWith(MOVER_PREFIX)) {
 			String[] moverData = line.replace(MOVER_PREFIX, "").split(PRIMARY_SEPARATOR);
 			if (moverData.length != 7) {
-				report("Mover data must contain exactly 7 comma-separated values");
+				report("Mover data must contain exactly 7 values");
 			} else {
 				MovingObject mover = new MovingObject();
-				boolean valid = true;
+				valid = true;
 				if ((mover.shape = Shape.getShape(moverData[0])) == Shape.NO_MATCH) {
 					report("Invalid shape name");
 					valid = false;
@@ -260,10 +288,10 @@ public class ConfigImporter {
 			if (line.startsWith(INTERRUPTION_PREFIX)) {
 				String[] interruptionData = line.replace(INTERRUPTION_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (interruptionData.length != 3) {
-					report("Interruption event data must contain exactly 3 comma-separated values");
+					report("Interruption event data must contain exactly 3 values");
 				} else {
 					Interruption interruption = new Interruption();
-					boolean valid = true;
+					valid = true;
 					String imageName = interruptionData[0];
 					interruption.image = new File(directory.toString() + IMG_DIR + imageName);
 					if (!interruption.image.exists() || !interruption.image.isFile()) {
@@ -295,9 +323,9 @@ public class ConfigImporter {
 			} else {
 				String[] queryData = line.replace(QUERY_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (queryData.length != 4) {
-					report("Query event data must contain exactly 4 comma-separated values");
+					report("Query event data must contain exactly 4 values");
 				} else {
-					boolean valid = true;
+					valid = true;
 					Query query = new Query();
 					query.text = queryData[0];
 					switch (queryData[1]) {
