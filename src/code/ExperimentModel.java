@@ -41,32 +41,6 @@ public class ExperimentModel {
 		}
 	}
 	
-	public static enum Color {
-		RED,
-		ORANGE,
-		YELLOW,
-		GREEN,
-		BLUE,
-		PURPLE,
-		BLACK,
-		WHITE,
-		NO_MATCH;
-		
-		public static Color getColor(String colorName) {
-			switch (colorName) {
-				case "red" : return RED;
-				case "orange" : return ORANGE;
-				case "yellow" : return YELLOW;
-				case "green" : return GREEN;
-				case "blue" : return BLUE;
-				case "purple" : return PURPLE;
-				case "black" : return BLACK;
-				case "white" : return WHITE;
-				default : return NO_MATCH;
-			}
-		}
-	}
-	
 	public static class Waypoint {
 		public String name;
 		public float x, y;
