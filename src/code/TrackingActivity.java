@@ -43,7 +43,7 @@ public class TrackingActivity extends Application {
 	private double stageWidth, stageHeight, mapOffsetX, mapOffsetY, mapHeight, mapWidth;
 	private HashMap<Waypoint, Text> waypoints = new HashMap<>();
 	private static final int FONT_SIZE = 30; // Determines the size of the waypoints & moving objects
-	Font wingdings;
+	Font icons;
 	
 	public TrackingActivity(ExperimentModel model) {
 		this.model = model;
@@ -61,7 +61,7 @@ public class TrackingActivity extends Application {
 		bounds = Screen.getPrimary().getBounds();
 		stageWidth = bounds.getWidth();
 		stageHeight = bounds.getHeight();
-		wingdings = Font.loadFont("../wingding.ttf", 32);
+		icons = Font.loadFont(TrackingActivity.class.getResource("/Font-Awesome-5-Free-Solid-900.otf").toString(), FONT_SIZE);
 		map.drawMap();
 		stage.show();
 		map.drawWaypoints();
@@ -112,7 +112,7 @@ public class TrackingActivity extends Application {
 			// & add Wingdings support
 			Integer i = 1;
 			for (Waypoint waypoint: model.waypoints) {
-				waypoints.put(waypoint, drawText(waypoint.x, waypoint.y, Character.toChars(9670)[0]));
+				waypoints.put(waypoint, drawText(waypoint.x, waypoint.y, Character.toChars(Integer.parseInt("f1ad", 16))[0]));
 			}
 		}
 		
@@ -120,7 +120,7 @@ public class TrackingActivity extends Application {
 			// TODO: use object name instead of integer, add import rule to ensure it's a single character
 			Integer i = 6;
 			for (MovingObject object : model.objects) {
-				Text text = drawText(object.pathPoints.get(0).x, object.pathPoints.get(0).y, Character.toChars(9992)[0]);
+				Text text = drawText(object.pathPoints.get(0).x, object.pathPoints.get(0).y, Character.toChars(Integer.parseInt("f072", 16))[0]);
 				Path path = new Path();
 				path.getElements().add(new MoveTo(text.getX(), text.getY()));
 				double x = text.getX();
@@ -164,12 +164,13 @@ public class TrackingActivity extends Application {
 			x = (x*(mapWidth/model.x))+mapOffsetX;
 			y = (y*(mapHeight/model.y))+mapOffsetY;
 			Text t = new Text(x, y, (symbol).toString());
-			t.setFont(wingdings);
+			t.setFont(icons);
 			t.setFill(Color.WHITE);
 			t.setBoundsType(TextBoundsType.VISUAL);
 			t.setWrappingWidth(200);
 			root.getChildren().add(t);
 			Path p = new Path();
+			// TODO: Do this better!
 			p.getElements().add(new MoveTo(x-1,y-1));
 			p.getElements().add(new LineTo(x,y));
 			PathTransition pt = new PathTransition();
