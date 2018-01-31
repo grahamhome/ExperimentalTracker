@@ -12,11 +12,13 @@ import java.util.Iterator;
 import java.util.List;
 
 import code.ExperimentModel.*;
+import code.ExperimentModel.Label.Position;
+import javafx.scene.paint.Color;
 
 /**
  * This class imports an experiment configuration specified by the user,
  * parses it to retrieve the experimental values, and creates a data model
- * containing the values.
+ * containing the values specified in the configuration file.
  * @author Graham Home <grahamhome333@gmail.com>
  *
  */
@@ -29,8 +31,9 @@ public class ConfigImporter {
 	private static final String WAYPOINT_PREFIX = "PT: ";
 	private static final String CONNECTOR_PREFIX = "CT: ";
 	private static final String MOVER_PREFIX = "MV: ";
-	private static final String INTERRUPTION_PREFIX = "INT: ";
-	private static final String QUERY_PREFIX = "QUE: ";
+	private static final String LABEL_PREFIX = "LB: ";
+	private static final String MASK_PREFIX = "MK: ";
+	private static final String QUERY_PREFIX = "QR: ";
 	private static final String IMG_DIR = "\\images\\";
 	private static final List<String> VALID_IMG_TYPES = Arrays.asList(new String[] {"jpg", "jpeg", "png" });
 	
@@ -108,7 +111,7 @@ public class ConfigImporter {
 				}
 			}
 		}
-		if (!valid) { return null; } // Continuing with an invalid map would cause a lot of false positive "errors"
+		if (!valid) { return null; } // Continuing with an invalid map would cause most other config lines to fail
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
 		try {
 			model.updateRate = Float.parseFloat(configLines.get(lineNumber = lineNumbers.next()));
@@ -117,42 +120,70 @@ public class ConfigImporter {
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
 		model.duration = parseTime(configLines.get(lineNumber = lineNumbers.next()));
 		
+		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
+		try {
+			double clickRadius = (Double.parseDouble(configLines.get(lineNumber = lineNumbers.next())));
+			if (clickRadius <= 0 || clickRadius > 100) {
+				report("Click radius must be greater than 0 and no more than 100");
+			} else {
+				model.clickRadius = clickRadius;
+			}
+		} catch (NumberFormatException e) {
+			report("Click radius must be a number");
+		}
+		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
+		String introFileName = configLines.get(lineNumber = lineNumbers.next());
+		File introFile = new File(directory.toString() + "\\" + introFileName);
+		if (!introFile.exists() || !introFile.isFile()) {
+			report("Introduction message file " + introFileName + " not found in this configuration folder");
+		} else {
+			int i = introFileName.lastIndexOf(".");
+			String ext = null;
+			if (i != 0) {
+				ext = introFileName.substring(i+1).toLowerCase();
+			}
+			if (!ext.equals("txt")) {
+				report("Introduction message file must be in .txt format");
+			}
+		}
+		
 		String line = "";
 		if (lineNumbers.hasNext()) {
 			line = configLines.get(lineNumber = lineNumbers.next());
 		}
 		while (line.startsWith(WAYPOINT_PREFIX) || line.startsWith(CONNECTOR_PREFIX)) {
+			valid = true;
 			if (line.startsWith(WAYPOINT_PREFIX)) {
 				String[] waypointData = line.replace(WAYPOINT_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (waypointData.length != 5) { 
-					report("Waypoint data must contain exactly 5 values"); 
+				if (waypointData.length != 6 && waypointData.length != 3) { 
+					report("Waypoint data must contain either 6 values (for visible waypoints) or 3 values (for invisible waypoints)"); 
 				} else {
 					Waypoint waypoint = new Waypoint();
 					if (model.getWaypoint((waypoint.name = waypointData[0])) != null) {
 						report("A waypoint with this name already exists");
 						valid = false;
 					}
-					switch (waypointData[4]) {
-						case "visible" : waypoint.visible = true; break;
-						case "invisible" : waypoint.visible = false; break;
-						default : report("Waypoint visibility value must be 'visible' or 'invisible'"); valid = false;
-					}
-					if ((waypoint.shape = Shape.getShape(waypointData[1])) == Shape.NO_MATCH) { 
-						report("Invalid shape name");
-						valid = false;
-					}
 					try {
-						if ((waypoint.x = Float.parseFloat(waypointData[2])) < 0 
-								|| waypoint.x > model.x 
-								|| (waypoint.y = Float.parseFloat(waypointData[3])) < 0 
-								|| waypoint.y > model.y) 
-						{
-							report("Waypoint coordinates must be within map boundaries");
-							valid = false;
-						} 
+						waypoint.x = Float.parseFloat(waypointData[1]); 
+						waypoint.y = Float.parseFloat(waypointData[2]);
 					} catch (NumberFormatException e) { 
 						report("Waypoint coordinates must be numeric values"); 
 						valid = false;
+					}
+					if (waypointData.length == 6) {
+						waypoint.icon = waypointData[3];
+						try {
+							waypoint.size = Float.parseFloat(waypointData[4]);
+						} catch (NumberFormatException e) {
+							report("Waypoint size must be a numeric value");
+							valid = false;
+						}
+						try {
+							waypoint.color = Color.valueOf(waypointData[5]);
+						} catch (IllegalArgumentException e) {
+							report("Waypoint color value must be a valid color code");
+							valid = false;
+						}
 					}
 					if (valid) {
 						if (model.waypoints.contains(waypoint)) {
@@ -176,6 +207,9 @@ public class ConfigImporter {
 						valid = false;
 					} else if (connector.point1.equals(connector.point2)) { 
 						report("Connector must connect two unique waypoints"); 
+						valid = false;
+					} else if (connector.point1.icon == null || connector.point2.icon == null) {
+						report("Connectors may only be used to connect visible waypoints");
 						valid = false;
 					}
 					try {
@@ -211,26 +245,29 @@ public class ConfigImporter {
 		while (line.startsWith(MOVER_PREFIX)) {
 			String[] moverData = line.replace(MOVER_PREFIX, "").split(PRIMARY_SEPARATOR);
 			if (moverData.length != 7) {
-				report("Mover data must contain exactly 7 values");
+				report("Moving object data must contain exactly 7 values");
 			} else {
 				MovingObject mover = new MovingObject();
 				valid = true;
-				if ((mover.shape = Shape.getShape(moverData[0])) == Shape.NO_MATCH) {
-					report("Invalid shape name");
+				mover.name = moverData[0];
+				mover.icon = moverData[1];
+				try {
+					mover.color = Color.valueOf(moverData[2]);
+				} catch (IllegalArgumentException e) {
+					report("Moving object color value is not a valid color code");
 					valid = false;
 				}
-				mover.label = moverData[1];
 				try {
-					if (!MovingObject.labelAngles.contains((mover.angle = Integer.parseInt(moverData[2])))) {
-						report("Label angle must be one of the following values: " + MovingObject.labelAngles.toString().replaceAll("\\[|\\]", ""));
+					if ((mover.speed = Float.parseFloat(moverData[3])) < 0) {
+						report("Moving object speed must be greater than 0 knots");
 						valid = false;
 					}
 				} catch (NumberFormatException e) {
-					report("Label angle must be a numeric value");
+					report("Moving object speed must be a numeric value");
 					valid = false;
 				}
 				try {
-					if ((mover.leaderLength = Integer.parseInt(moverData[3])) < 0 || mover.leaderLength > MovingObject.maxLeaderLength) {
+					if ((mover.leaderLength = Integer.parseInt(moverData[4])) < 0 || mover.leaderLength > MovingObject.maxLeaderLength) {
 						report("Leader line length must be between 0 and " + MovingObject.maxLeaderLength);
 						valid = false;
 					}
@@ -238,7 +275,7 @@ public class ConfigImporter {
 					report("Leader line length must be a numeric value");
 				}
 				try {
-					if ((mover.numDots = Integer.parseInt(moverData[4])) < 0 || mover.numDots > MovingObject.maxDots) {
+					if ((mover.numDots = Integer.parseInt(moverData[5])) < 0 || mover.numDots > MovingObject.maxDots) {
 						report("Number of history dots must be between 0 and " + MovingObject.maxDots);
 						valid = false;
 					}
@@ -246,7 +283,7 @@ public class ConfigImporter {
 					report("Number of history dots must be a numeric value");
 					valid = false;
 				}
-				String[] waypoints = moverData[5].split(SECONDARY_SEPARATOR);
+				String[] waypoints = moverData[6].split(SECONDARY_SEPARATOR);
 				for (String waypointName : waypoints) {
 					Waypoint waypoint = model.getWaypoint(waypointName);
 					if (waypoint == null) {
@@ -257,16 +294,7 @@ public class ConfigImporter {
 					}
 				}
 				if (mover.pathPoints.size() < 2) {
-					report("At least 2 valid waypoints must be specified for each mover");
-					valid = false;
-				}
-				try {
-					if ((mover.speed = Float.parseFloat(moverData[6])) <= 0) {
-						report("Mover speed must be greater than 0 knots");
-						valid = false;
-					}
-				} catch (NumberFormatException e) {
-					report("Mover speed must be a numeric value");
+					report("At least 2 valid waypoints must be specified for each moving object");
 					valid = false;
 				}
 				if (valid) {
@@ -284,18 +312,83 @@ public class ConfigImporter {
 			}
 		}
 		
-		while (line.startsWith(INTERRUPTION_PREFIX) || line.startsWith(QUERY_PREFIX)) {
-			if (line.startsWith(INTERRUPTION_PREFIX)) {
-				String[] interruptionData = line.replace(INTERRUPTION_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (interruptionData.length != 3) {
-					report("Interruption event data must contain exactly 3 values");
+		while (line.startsWith(LABEL_PREFIX)) {
+			String[] labelData = line.replace(LABEL_PREFIX, "").split(PRIMARY_SEPARATOR);
+			if (labelData.length != 5) {
+				report("Label data must contain exactly 5 values");
+			} else {
+				valid = true;
+				Label label = new Label();
+				MovingObject mover = model.getMovingObject(labelData[0]);
+				if (mover == null) {
+					report("The moving object " + labelData[0] + " was not specified in this configuration");
+					valid = false;
+				}
+				switch (labelData[1]) {
+					case "left":
+						label.position = Position.LEFT;
+						break;
+					case "right":
+						label.position = Position.RIGHT;
+						break;
+					case "above":
+						label.position = Position.ABOVE;
+						break;
+					case "below":
+						label.position = Position.BELOW;
+						break;
+					default:
+						report("Label position must be either \"left\", \"right\", \"above\", or \"below\"");
+						valid = false;
+				}
+				
+				if (labelData[2].length() == 0) {
+					label.backgroundColor = Color.TRANSPARENT;
 				} else {
-					Interruption interruption = new Interruption();
+					try {
+						label.backgroundColor = Color.valueOf(labelData[2]);
+					} catch (IllegalArgumentException e) {
+						report("Label background color is not a valid color value");
+						valid = false;
+					}
+				}
+				if (labelData[3].length() == 0) {
+					label.foregroundColor = Color.TRANSPARENT;
+				} else {
+					try {
+						label.foregroundColor = Color.valueOf(labelData[3]);
+					} catch (IllegalArgumentException e) {
+						report("Label text color is not a valid color value");
+						valid = false;
+					}
+				}
+				if ((label.text = labelData[4]).isEmpty()) {
+					report("Label may not be empty");
+					valid = false;
+				}
+				if (valid) {
+					mover.label = label;
+				}
+			}
+			if (lineNumbers.hasNext()) {
+				line = configLines.get(lineNumber = lineNumbers.next());
+			} else {
+				line = "";
+			}
+		}
+		
+		while (line.startsWith(MASK_PREFIX) || line.startsWith(QUERY_PREFIX)) {
+			if (line.startsWith(MASK_PREFIX)) {
+				String[] maskData = line.replace(MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
+				if (maskData.length != 3) {
+					report("Mask event data must contain exactly 3 values");
+				} else {
+					MaskEvent maskEvent = new MaskEvent();
 					valid = true;
-					String imageName = interruptionData[0];
-					interruption.image = new File(directory.toString() + IMG_DIR + imageName);
-					if (!interruption.image.exists() || !interruption.image.isFile()) {
-						report("Image file " + imageName + " not found in the " + IMG_DIR + " folder of this configuration folder");
+					String imageName = maskData[0];
+					maskEvent.image = new File(directory.toString() + IMG_DIR + imageName);
+					if (!maskEvent.image.exists() || !maskEvent.image.isFile()) {
+						report("Mask image file " + imageName + " not found in the " + IMG_DIR + " folder of this configuration folder");
 						valid = false;
 					} else {
 						int i = imageName.lastIndexOf(".");
@@ -308,50 +401,52 @@ public class ConfigImporter {
 							valid = false;
 						}
 					}
-					interruption.startTime = parseTime(interruptionData[1]);
-					interruption.duration = parseTime(interruptionData[2]);
-					if (interruption.startTime == -1 || interruption.duration == -1) {
+					maskEvent.startTime = parseTime(maskData[1]);
+					maskEvent.endTime = parseTime(maskData[2]);
+					if (maskEvent.startTime == -1 || maskEvent.endTime == -1) {
 						valid = false;
-					} else if (interruption.startTime + interruption.duration >= model.duration) {
-						report("Interruption tasks must begin and end before the end of the experiment");
+					} else if (maskEvent.endTime-maskEvent.startTime > model.duration) {
+						report("Interruption tasks must end before the end of the experiment");
 						valid = false;
 					}
 					if (valid) {
-						model.interruptions.add(interruption);
+						model.maskEvents.add(maskEvent);
 					}
 				}
 			} else {
 				String[] queryData = line.replace(QUERY_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (queryData.length != 4) {
-					report("Query event data must contain exactly 4 values");
+				if (queryData.length != 6) {
+					report("Query event data must contain exactly 6 values");
 				} else {
 					valid = true;
 					Query query = new Query();
-					query.text = queryData[0];
-					switch (queryData[1]) {
-						case "visual": query.visual = true; break;
-						case "audio": query.visual = false; break;
-						default: report("Query format must be either \"audio\" or \"visual\""); valid = false;
+					switch (queryData[0]) {
+						case "click":
+							query.acceptsText = false;
+							break;
+						case "text":
+							query.acceptsText = true;
+							break;
+						default:
+							report("Query type must be either \"click\" or \"text\"");
+							valid = false;
 					}
-					query.startTime = parseTime(queryData[2]);
-					String duration = queryData[3];
-					if (duration.equals("wait")) {
+					
+					query.startTime = parseTime(queryData[1]);
+					String endTime = queryData[2];
+					if (endTime.equals("wait")) {
 						query.wait = true;
-					} else if (duration.equals("none")) {
-						if (query.visual) {
-							report("A query duration of \"none\" may only be used for audio queries");
-						} else {
-							query.duration = 0;
-						}
 					} else {
-						query.duration = parseTime(queryData[3]);
+						if ((query.endTime = parseTime(endTime)) == -1) {
+							valid = false;
+						} else {
+							if (query.endTime-query.startTime > model.duration) {
+								report("Query events must end before the end of the experiment");
+								valid = false;
+							}
+						}
 					}
-					if (query.startTime == -1 || query.duration == -1) {
-						valid = false;
-					} else if (query.startTime + query.duration >= model.duration) {
-						report("Query tasks must begin and end before the end of the experiment");
-						valid = false;
-					}
+					query.text = queryData[3];
 					if (valid) {
 						model.queries.add(query);
 					}
@@ -364,7 +459,7 @@ public class ConfigImporter {
 			}
 		}
 		if (lineNumbers.hasNext()) {
-			report("Unrecognized configuration data detected after interruption/query tasks");
+			report("Unrecognized configuration data detected after mask and query tasks");
 		}
 		return (errors.isEmpty() ? model : null);
 	}

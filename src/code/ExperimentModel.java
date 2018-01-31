@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
+import javafx.scene.paint.Color;
+
 /**
  * This class represents the configuration for an MIT experiment.
  * @author Graham Home <grahamhome333@gmail.com>
@@ -14,38 +16,23 @@ public class ExperimentModel {
 	
 	public String name;
 	public float x, y, updateRate;
-	public javafx.scene.paint.Color mapColor = null;
-	public File mapImage = null;
+	public javafx.scene.paint.Color mapColor;
+	public File mapImage;
 	public double duration;
+	public double clickRadius;
+	public String introduction	;
 	public ArrayList<Waypoint> waypoints = new ArrayList<>();
 	public ArrayList<Connector> connectors = new ArrayList<>();
 	public ArrayList<MovingObject> objects = new ArrayList<>();
-	public ArrayList<Interruption> interruptions = new ArrayList<>();
+	public ArrayList<MaskEvent> maskEvents = new ArrayList<>();
 	public ArrayList<Query> queries = new ArrayList<>();
-	
-	public static enum Shape {
-		CIRCLE,
-		SQUARE,
-		TRIANGLE,
-		STAR,
-		NO_MATCH;
-		
-		public static Shape getShape(String shapeName) {
-			switch (shapeName) {
-				case "circle" : return CIRCLE;
-				case "square" : return SQUARE;
-				case "triangle" : return TRIANGLE;
-				case "star" : return STAR;
-				default : return NO_MATCH;
-			}
-		}
-	}
 	
 	public static class Waypoint {
 		public String name;
 		public float x, y;
-		public Shape shape;
-		public boolean visible;
+		public String icon;
+		public float size;
+		public Color color;
 		
 		@Override
 		public boolean equals(Object waypointToCompare) {
@@ -59,6 +46,15 @@ public class ExperimentModel {
 		for (Waypoint point : waypoints) {
 			if (point.name.equals(name)) {
 				return point;
+			}
+		}
+		return null;
+	}
+	
+	public MovingObject getMovingObject(String name) {
+		for (MovingObject mover : objects) {
+			if (mover.name.equals(name)) {
+				return mover;
 			}
 		}
 		return null;
@@ -80,13 +76,13 @@ public class ExperimentModel {
 	}
 	
 	public static class MovingObject {
-		public String label;
-		public Shape shape;
-		public int angle, leaderLength, numDots;
-		public float speed;
+		public String name, icon;
+		public Color color;
+		public int numDots;
+		public float speed, leaderLength;
 		public ArrayList<Waypoint> pathPoints = new ArrayList<>();
+		public Label label;
 		
-		public static final List<Integer> labelAngles = Arrays.asList(new Integer[] {0, 45, 90, 135, 180, 225, 270, 315, 360});
 		public static final int maxLeaderLength = 10;
 		public static final int maxDots = 10;
 		
@@ -106,17 +102,24 @@ public class ExperimentModel {
 		}
 	}
 	
-	public static class Interruption {
+	public static class Label {
+		public enum Position {
+			LEFT, RIGHT, ABOVE, BELOW
+		}
+		public Position position;
+		public Color backgroundColor, foregroundColor;
+		public String text;
+	}
+	
+	public static class MaskEvent {
 		public File image;
-		public double startTime;
-		public double duration;
+		public double startTime, endTime;
 	}
 	
 	public static class Query {
 		public String text;
-		public boolean visual; // If false: audio
-		public double startTime;
-		public double duration;
+		public boolean acceptsText; // If false, accepts a mouse click as input
+		public double startTime, endTime;
 		public boolean wait = false;
 	}
 }
