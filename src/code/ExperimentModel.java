@@ -20,19 +20,21 @@ public class ExperimentModel {
 	public File mapImage;
 	public double duration;
 	public double clickRadius;
-	public String introduction	;
+	public String introduction;
 	public ArrayList<Waypoint> waypoints = new ArrayList<>();
 	public ArrayList<Connector> connectors = new ArrayList<>();
 	public ArrayList<MovingObject> objects = new ArrayList<>();
 	public ArrayList<MaskEvent> maskEvents = new ArrayList<>();
 	public ArrayList<Query> queries = new ArrayList<>();
 	
-	public static class Waypoint {
-		public String name;
-		public float x, y;
-		public String icon;
-		public float size;
+	public abstract static class Icon {
+		public float x,y,size;
+		public String iconCode;
 		public Color color;
+	}
+	
+	public static class Waypoint extends Icon {
+		public String name;
 		
 		@Override
 		public boolean equals(Object waypointToCompare) {
@@ -40,6 +42,7 @@ public class ExperimentModel {
 			Waypoint waypoint = (Waypoint) waypointToCompare;
 			return ((x == waypoint.x && y == waypoint.y) || (x == y && x == waypoint.y && y == waypoint.x));
 		}
+		
 	}
 	
 	public Waypoint getWaypoint(String name) {
@@ -75,9 +78,8 @@ public class ExperimentModel {
 		}
 	}
 	
-	public static class MovingObject {
-		public String name, icon;
-		public Color color;
+	public static class MovingObject extends Icon {
+		public String name;
 		public int numDots;
 		public float speed, leaderLength;
 		public ArrayList<Waypoint> pathPoints = new ArrayList<>();
@@ -109,6 +111,8 @@ public class ExperimentModel {
 		public Position position;
 		public Color backgroundColor, foregroundColor;
 		public String text;
+		public float size;
+		
 	}
 	
 	public static class MaskEvent {

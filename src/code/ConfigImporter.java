@@ -171,7 +171,12 @@ public class ConfigImporter {
 						valid = false;
 					}
 					if (waypointData.length == 6) {
-						waypoint.icon = waypointData[3];
+						try {
+							waypoint.iconCode = waypointData[3];
+						} catch (IllegalArgumentException e) {
+							report("Invalid character code for waypoint symbol");
+							valid = false;
+						}
 						try {
 							waypoint.size = Float.parseFloat(waypointData[4]);
 						} catch (NumberFormatException e) {
@@ -208,7 +213,7 @@ public class ConfigImporter {
 					} else if (connector.point1.equals(connector.point2)) { 
 						report("Connector must connect two unique waypoints"); 
 						valid = false;
-					} else if (connector.point1.icon == null || connector.point2.icon == null) {
+					} else if (connector.point1.iconCode == null || connector.point2.iconCode == null) {
 						report("Connectors may only be used to connect visible waypoints");
 						valid = false;
 					}
@@ -244,13 +249,18 @@ public class ConfigImporter {
 		}
 		while (line.startsWith(MOVER_PREFIX)) {
 			String[] moverData = line.replace(MOVER_PREFIX, "").split(PRIMARY_SEPARATOR);
-			if (moverData.length != 7) {
-				report("Moving object data must contain exactly 7 values");
+			if (moverData.length != 8) {
+				report("Moving object data must contain exactly 8 values");
 			} else {
 				MovingObject mover = new MovingObject();
 				valid = true;
 				mover.name = moverData[0];
-				mover.icon = moverData[1];
+				try {
+					mover.iconCode = moverData[1];
+				} catch (IllegalArgumentException e) {
+					report("Invalid character code for moving object symbol");
+					valid = false;
+				}
 				try {
 					mover.color = Color.valueOf(moverData[2]);
 				} catch (IllegalArgumentException e) {
@@ -258,7 +268,13 @@ public class ConfigImporter {
 					valid = false;
 				}
 				try {
-					if ((mover.speed = Float.parseFloat(moverData[3])) < 0) {
+					mover.size = Float.parseFloat(moverData[3]);
+				} catch (NumberFormatException e) {
+					report("Moving object size must be a numeric value");
+					valid = false;
+				}
+				try {
+					if ((mover.speed = Float.parseFloat(moverData[4])) < 0) {
 						report("Moving object speed must be greater than 0 knots");
 						valid = false;
 					}
@@ -267,7 +283,7 @@ public class ConfigImporter {
 					valid = false;
 				}
 				try {
-					if ((mover.leaderLength = Integer.parseInt(moverData[4])) < 0 || mover.leaderLength > MovingObject.maxLeaderLength) {
+					if ((mover.leaderLength = Integer.parseInt(moverData[5])) < 0 || mover.leaderLength > MovingObject.maxLeaderLength) {
 						report("Leader line length must be between 0 and " + MovingObject.maxLeaderLength);
 						valid = false;
 					}
@@ -275,7 +291,7 @@ public class ConfigImporter {
 					report("Leader line length must be a numeric value");
 				}
 				try {
-					if ((mover.numDots = Integer.parseInt(moverData[5])) < 0 || mover.numDots > MovingObject.maxDots) {
+					if ((mover.numDots = Integer.parseInt(moverData[6])) < 0 || mover.numDots > MovingObject.maxDots) {
 						report("Number of history dots must be between 0 and " + MovingObject.maxDots);
 						valid = false;
 					}
@@ -283,7 +299,7 @@ public class ConfigImporter {
 					report("Number of history dots must be a numeric value");
 					valid = false;
 				}
-				String[] waypoints = moverData[6].split(SECONDARY_SEPARATOR);
+				String[] waypoints = moverData[7].split(SECONDARY_SEPARATOR);
 				for (String waypointName : waypoints) {
 					Waypoint waypoint = model.getWaypoint(waypointName);
 					if (waypoint == null) {
@@ -301,6 +317,8 @@ public class ConfigImporter {
 					if (model.objects.contains(mover)) {
 						report("A mover with the same speed and path already exists");
 					} else {
+						mover.x = mover.pathPoints.get(0).x;
+						mover.y = mover.pathPoints.get(0).y;
 						model.objects.add(mover);
 					}
 				}
@@ -314,8 +332,8 @@ public class ConfigImporter {
 		
 		while (line.startsWith(LABEL_PREFIX)) {
 			String[] labelData = line.replace(LABEL_PREFIX, "").split(PRIMARY_SEPARATOR);
-			if (labelData.length != 5) {
-				report("Label data must contain exactly 5 values");
+			if (labelData.length != 6) {
+				report("Label data must contain exactly 6 values");
 			} else {
 				valid = true;
 				Label label = new Label();
@@ -362,7 +380,13 @@ public class ConfigImporter {
 						valid = false;
 					}
 				}
-				if ((label.text = labelData[4]).isEmpty()) {
+				try {
+					label.size = Float.valueOf(labelData[4]);
+				} catch (NumberFormatException e) {
+					report("Label size must be a numeric value");
+					valid = false;
+				}
+				if ((label.text = labelData[5]).isEmpty()) {
 					report("Label may not be empty");
 					valid = false;
 				}
@@ -406,7 +430,7 @@ public class ConfigImporter {
 					if (maskEvent.startTime == -1 || maskEvent.endTime == -1) {
 						valid = false;
 					} else if (maskEvent.endTime-maskEvent.startTime > model.duration) {
-						report("Interruption tasks must end before the end of the experiment");
+						report("Mask appearances must end before the end of the experiment");
 						valid = false;
 					}
 					if (valid) {
