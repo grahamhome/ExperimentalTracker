@@ -37,10 +37,10 @@ public class ExperimentModel {
 		duration = 0;
 		clickRadius = 0;
 		introduction = null;
-		waypoints = null;
-		objects = null;
-		maskEvents = null;
-		queries = null;
+		waypoints = new HashMap<>();
+		objects = new HashMap<>();
+		maskEvents = new ArrayList<>();
+		queries = new ArrayList<>();
 	}
 	
 	/**

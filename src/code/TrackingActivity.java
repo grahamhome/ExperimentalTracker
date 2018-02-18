@@ -4,9 +4,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import com.sun.javafx.geom.BaseBounds.BoundsType;
-import com.sun.javafx.image.impl.BaseIntToByteConverter;
-
 import code.ExperimentModel.Connector;
 import code.ExperimentModel.TextObject;
 import code.ExperimentModel.MovingObjectLabel;
@@ -16,27 +13,20 @@ import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
 import javafx.application.Application;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.geometry.Rectangle2D;
-import javafx.geometry.VPos;
 import javafx.scene.Group;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCombination;
-import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.LineTo;
 import javafx.scene.shape.MoveTo;
 import javafx.scene.shape.Path;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.shape.Shape;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 import javafx.scene.text.TextBoundsType;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -150,7 +140,7 @@ public class TrackingActivity extends Application {
 		}
 		
 		public Text drawText(TextObject textObject) {
-			Text text;
+			Text text = null;
 			if (textObject.value != null) {
 				text = new Text(textObject.value);
 				text.setFill(textObject.color);
@@ -160,13 +150,17 @@ public class TrackingActivity extends Application {
 					text.setFont(Font.loadFont(iconFontURL.toString(), textObject.size));
 				}
 			} else {
-				text = new Text("");
+				if (textObject instanceof WaypointObject) {
+					text = new Text("");
+				}
 			}
-			text.setBoundsType(TextBoundsType.VISUAL);
-			text.setWrappingWidth(200);
-			text.setX(x-(text.getLayoutBounds().getWidth()/2));
-			text.setY(y+(text.getLayoutBounds().getHeight()/2));
-			root.getChildren().add(text);
+			if (text != null) {
+				text.setBoundsType(TextBoundsType.VISUAL);
+				text.setWrappingWidth(200);
+				text.setX(x-(text.getLayoutBounds().getWidth()/2));
+				text.setY(y+(text.getLayoutBounds().getHeight()/2));
+				root.getChildren().add(text);
+			}
 			return text;
 		}
 	}
@@ -214,15 +208,16 @@ public class TrackingActivity extends Application {
 			for (WaypointObject waypointObject : pathPoints) {
 				GraphicalStationaryObject waypoint = waypoints.get(waypointObject);
 				distance += Math.sqrt(Math.pow(waypointObject.x-previous.x,2)+Math.pow(waypointObject.y-previous.y,2));
-				previous = waypointObject;
+				double angle = Math.atan2(waypointObject.x-previous.x, waypointObject.y-previous.y);
 				iconPath.getElements().add(new LineTo(waypoint.x, waypoint.y));
-				/*if (labelText != null) {
-					double[] coords = getLabelRelativePosition(newX, newY);
+				if (labelText != null) {
+					double[] coords = getLabelRelativePosition(waypoint.x, waypoint.y);
 					labelPath.getElements().add(new LineTo(coords[0], coords[1]));
 					if (labelBackground != null) {
 						labelBackgroundPath.getElements().add(new LineTo(coords[0], coords[1]));
 					}
-				}*/
+				}
+				previous = waypointObject;
 			}
 			PathTransition iconPathTransition = new PathTransition();
 			iconPathTransition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
@@ -234,41 +229,43 @@ public class TrackingActivity extends Application {
 			System.out.println("Duration (mins): " + (distance/object.speed)*60);
 			iconPathTransition.setDuration(Duration.minutes((distance/object.speed)*60));
 			masterTransition.getChildren().add(iconPathTransition);
-			/*if (labelText != null) {
+			if (labelText != null) {
 				PathTransition labelPathTransition = new PathTransition();
-				labelPathTransition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
 				labelPathTransition.setPath(labelPath);
 				labelPathTransition.setNode(labelText);
 				labelPathTransition.setInterpolator(Interpolator.LINEAR);
-				labelPathTransition.setDuration(new Duration((distance/speed)*60*60*1000));
+				labelPathTransition.setDuration(Duration.minutes((distance/object.speed)*60));
 				masterTransition.getChildren().add(labelPathTransition);
 				if (labelBackground != null) {
 					PathTransition labelBackgroundPathTransition = new PathTransition();
-					labelBackgroundPathTransition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
 					labelBackgroundPathTransition.setPath(labelPath);
-					labelBackgroundPathTransition.setNode(labelText);
+					labelBackgroundPathTransition.setNode(labelBackground);
 					labelBackgroundPathTransition.setInterpolator(Interpolator.LINEAR);
-					labelBackgroundPathTransition.setDuration(new Duration((distance/speed)*60*60*1000));
+					labelBackgroundPathTransition.setDuration(Duration.minutes((distance/object.speed)*60));
 					masterTransition.getChildren().add(labelBackgroundPathTransition);
 				}
-			}*/
+			}
+		}
+		
+		public double[] getLabelRelativePosition(double targetX, double targetY) {
+			switch (label.position) {
+				case RIGHT:
+					return new double[] {targetX+((graphicalIcon.getLayoutBounds().getWidth()+labelText.getLayoutBounds().getWidth())/1.9), targetY};
+				case LEFT:
+					return new double [] {targetX-((graphicalIcon.getLayoutBounds().getWidth()+labelText.getLayoutBounds().getWidth())/1.9), targetY};
+				case ABOVE:
+					return new double[] {targetX, targetY-((graphicalIcon.getLayoutBounds().getHeight()+labelText.getLayoutBounds().getHeight())/1.9)};
+				case BELOW:
+					return new double[] {targetX, targetY+((graphicalIcon.getLayoutBounds().getHeight()+labelText.getLayoutBounds().getHeight())/1.9)};
+				default:
+					return new double[] {targetX, targetY};
+			}
 		}
 		
 		public void setLabelRelativePosition() {
-			switch (label.position) {
-				case RIGHT:
-					labelText.setX(labelText.getX()-(label.size*label.value.length()/2.5));
-					break;
-				case LEFT:
-					labelText.setX(labelText.getX()+(label.size*label.value.length()/3.2));
-					break;
-				case ABOVE:
-					labelText.setY(labelText.getY()-label.size);
-					break;
-				case BELOW:
-					labelText.setY(labelText.getY()+label.size);
-					break;
-			}
+			double[] coords = getLabelRelativePosition(labelText.getX(), labelText.getY());
+			labelText.setX(coords[0]);
+			labelText.setY(coords[1]);
 		}
 	}
 	
