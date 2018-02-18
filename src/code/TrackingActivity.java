@@ -5,12 +5,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import com.sun.javafx.geom.BaseBounds.BoundsType;
+import com.sun.javafx.image.impl.BaseIntToByteConverter;
 
 import code.ExperimentModel.Connector;
-import code.ExperimentModel.Icon;
-import code.ExperimentModel.Label;
+import code.ExperimentModel.TextObject;
+import code.ExperimentModel.MovingObjectLabel;
 import code.ExperimentModel.MovingObject;
-import code.ExperimentModel.Waypoint;
+import code.ExperimentModel.WaypointObject;
 import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
@@ -18,6 +19,7 @@ import javafx.application.Application;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Rectangle2D;
+import javafx.geometry.VPos;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -50,17 +52,15 @@ public class TrackingActivity extends Application {
 	private Stage stage;
 	private Scene scene;
 	private Group root;
-	private ExperimentModel model;
 	private Map map = new Map();
 	private Rectangle2D bounds;
 	private double stageWidth, stageHeight, mapOffsetX, mapOffsetY, mapHeight, mapWidth;
-	private HashMap<Waypoint, Text> waypoints = new HashMap<>();
+	private HashMap<WaypointObject, GraphicalStationaryObject> waypoints = new HashMap<>();
 	private static final int FONT_SIZE = 30; // Determines the size of the waypoints & moving objects
 	private URL iconFontURL,textFontURL;
 	private ParallelTransition masterTransition = new ParallelTransition();
 	
-	public TrackingActivity(ExperimentModel model) {
-		this.model = model;
+	public TrackingActivity() {
 		iconFontURL = TrackingActivity.class.getResource("/Font-Awesome-5-Free-Solid-900.otf");
 		textFontURL = TrackingActivity.class.getResource("/segoeui.ttf");
 	}
@@ -79,11 +79,11 @@ public class TrackingActivity extends Application {
 		stageHeight = bounds.getHeight();
 		map.drawMap();
 		map.drawWaypoints();
-		map.drawConnectors();
 		map.drawObjects();
 		stage.show();
 		// TODO: Show intro message here
 		masterTransition.play();
+		// TODO: Show outro message here
 	}
 	
 	/**
@@ -102,12 +102,12 @@ public class TrackingActivity extends Application {
 				mapOffsetX = stageWidth*0.01;
 				mapOffsetY = (stageHeight-mapHeight)/2;
 			}
-			if (model.mapColor != null) {
+			if (ExperimentModel.mapColor != null) {
 				Rectangle map = new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight);
-				map.setFill(model.mapColor);
+				map.setFill(ExperimentModel.mapColor);
 				root.getChildren().add(map);
 			} else {
-				Image mapImage = new Image(model.mapImage.toURI().toString());
+				Image mapImage = new Image(ExperimentModel.mapImage.toURI().toString());
 				ImageView map = new ImageView(mapImage);
 				map.setPreserveRatio(true);
 				map.setFitWidth(mapWidth);
@@ -125,115 +125,82 @@ public class TrackingActivity extends Application {
 		}
 		
 		private void drawWaypoints() {
-			for (Waypoint waypoint: model.waypoints) {
-				new GraphicalStationaryObject(waypoint);
+			for (WaypointObject waypoint: ExperimentModel.waypoints.values()) {
+				waypoints.put(waypoint, new GraphicalStationaryObject(waypoint));
 			}
 		}
 		
 		private void drawObjects() {
-			for (MovingObject object : model.objects) {
+			for (MovingObject object : ExperimentModel.objects.values()) {
 				new GraphicalMovingObject(object);
-			}
-		}
-		
-		private void drawConnectors() {
-			for (Connector connector: model.connectors) {
-				Line line = new Line(waypoints.get(connector.point1).getX(),
-						waypoints.get(connector.point1).getY(), 
-						waypoints.get(connector.point2).getX(), 
-						waypoints.get(connector.point2).getY());
-				line.setStroke(connector.color);
-				line.setStrokeWidth(connector.width);
-				root.getChildren().add(line);
-			}
-			for (Text t : waypoints.values()) {
-				t.toFront();
 			}
 		}
 	}
 	
 	private abstract class GraphicalObject {
-		private Icon icon;
+		private TextObject baseIcon;
+		public Text graphicalIcon;
 		public double x, y;
 		
-		public GraphicalObject(Icon icon) {
-			this.icon = icon;
-			x = (icon.x*(mapWidth/model.x))+mapOffsetX;
-			y = (icon.y*(mapHeight/model.y))+mapOffsetY;
+		public GraphicalObject(TextObject icon) {
+			x = (icon.x*(mapWidth/ExperimentModel.x))+mapOffsetX;
+			y = (icon.y*(mapHeight/ExperimentModel.y))+mapOffsetY;
+			this.baseIcon = icon;
+			this.graphicalIcon = drawText(baseIcon);
 		}
 		
-		public Text drawIcon(Icon icon) {
-			Text t;
-			if (icon.iconCode != null) {
-				t = new Text(x, y, Character.toString(Character.toChars(Integer.parseInt(icon.iconCode, 16))[0]));
-				t.setFill(icon.color);
+		public Text drawText(TextObject textObject) {
+			Text text;
+			if (textObject.value != null) {
+				text = new Text(textObject.value);
+				text.setFill(textObject.color);
+				if (textObject instanceof MovingObjectLabel) {
+					text.setFont(Font.loadFont(textFontURL.toString(), textObject.size));
+				} else {
+					text.setFont(Font.loadFont(iconFontURL.toString(), textObject.size));
+				}
 			} else {
-				t = new Text(x, y, "");
+				text = new Text("");
 			}
-			t.setFont(Font.loadFont(iconFontURL.toString(), icon.size));
-			t.setWrappingWidth(200);
-			t.setBoundsType(TextBoundsType.VISUAL);
-			placeText(t);
-			root.getChildren().add(t);
-			return t;
-		}
-		
-		public void placeText(Text text) {
-			// This is needed because Shapes are placed differently when they are moved along a path
-			// TODO: replace this with logic to place the node using its center 
-			Path path = new Path();
-			path.getElements().add(new MoveTo(text.getX()-1, text.getY()-1));
-			path.getElements().add(new LineTo(text.getX(), text.getY()));
-			PathTransition pt = new PathTransition(Duration.millis(1), path, text);
-			pt.play();
+			text.setBoundsType(TextBoundsType.VISUAL);
+			text.setWrappingWidth(200);
+			text.setX(x-(text.getLayoutBounds().getWidth()/2));
+			text.setY(y+(text.getLayoutBounds().getHeight()/2));
+			root.getChildren().add(text);
+			return text;
 		}
 	}
 		
 	private class GraphicalMovingObject extends GraphicalObject {
 		private MovingObject object;
-		private Label label;
-		private Text icon;
+		private MovingObjectLabel label;
 		private Text labelText;
 		private Rectangle labelBackground;
-		private float speed;
 		
 		public GraphicalMovingObject(MovingObject object) {
 			super(object);
 			this.object = object;
-			this.icon = drawIcon(object);
 			label = object.label;
 			if (label != null) {
-				double[] labelCoords = getLabelRelativePosition(x, y);
-				labelText = new Text(labelCoords[0], labelCoords[1], label.text);
-				placeText(labelText);
-				labelText.setFont(Font.loadFont(textFontURL.toString(), label.size));
-				labelText.setWrappingWidth(200);
-				labelText.setBoundsType(TextBoundsType.VISUAL);
-				labelText.setTextAlignment(TextAlignment.CENTER);
-				labelText.setFill(label.foregroundColor);
-				root.getChildren().add(labelText);
+				labelText = drawText(label);
+				setLabelRelativePosition();
 				if (label.backgroundColor != Color.TRANSPARENT) {
-					Rectangle labelBackground = new Rectangle(
+					labelBackground = new Rectangle(
 							labelText.getLayoutBounds().getMinX(), 
 							labelText.getLayoutBounds().getMinY(),
 							labelText.getLayoutBounds().getWidth(),
 							labelText.getLayoutBounds().getHeight());
 					labelBackground.setFill(label.backgroundColor);
-					Path path = new Path();
-					path.getElements().add(new MoveTo(labelText.getX()-1, labelText.getY()-1));
-					path.getElements().add(new LineTo(labelText.getX(), labelText.getY()));
-					PathTransition pt = new PathTransition(Duration.millis(1), path, labelBackground);
-					pt.play();
 					root.getChildren().add(labelBackground);
 					labelText.toFront();
 				}
 			}
-			//generatePaths(object.pathPoints);
+			generatePaths(object.pathPoints);
 		}
 		
-		public void generatePaths(ArrayList<Waypoint> pathPoints) {
+		public void generatePaths(ArrayList<WaypointObject> pathPoints) {
 			Path iconPath = new Path();
-			iconPath.getElements().add(new MoveTo(x, y));
+			iconPath.getElements().add(new MoveTo(graphicalIcon.getX(), graphicalIcon.getY()));
 			Path labelPath = new Path();
 			Path labelBackgroundPath = new Path();
 			if (labelText != null) {
@@ -243,35 +210,37 @@ public class TrackingActivity extends Application {
 				}
 			}
 			double distance = 0;
-			for (Waypoint waypoint : pathPoints) {
-				double newX = waypoints.get(waypoint).getX(); // TODO: build up a hashmap of all paths between all points & use them to create animations rather than making duplicate paths?
-				double newY = waypoints.get(waypoint).getY();
-				distance += getRealDistance(x, y, newX, newY);
-				iconPath.getElements().add(new LineTo(newX, newY));
-				if (labelText != null) {
+			WaypointObject previous = pathPoints.get(0);
+			for (WaypointObject waypointObject : pathPoints) {
+				GraphicalStationaryObject waypoint = waypoints.get(waypointObject);
+				distance += Math.sqrt(Math.pow(waypointObject.x-previous.x,2)+Math.pow(waypointObject.y-previous.y,2));
+				previous = waypointObject;
+				iconPath.getElements().add(new LineTo(waypoint.x, waypoint.y));
+				/*if (labelText != null) {
 					double[] coords = getLabelRelativePosition(newX, newY);
 					labelPath.getElements().add(new LineTo(coords[0], coords[1]));
 					if (labelBackground != null) {
 						labelBackgroundPath.getElements().add(new LineTo(coords[0], coords[1]));
 					}
-				}
-				x = newX;
-				y = newY;
+				}*/
 			}
 			PathTransition iconPathTransition = new PathTransition();
 			iconPathTransition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
 			iconPathTransition.setPath(iconPath);
-			iconPathTransition.setNode(icon);
+			iconPathTransition.setNode(graphicalIcon);
 			iconPathTransition.setInterpolator(Interpolator.LINEAR);
-			iconPathTransition.setDuration(new Duration(distance/speed));
+			System.out.println("Distance: " + distance);
+			System.out.println("Speed: " + object.speed);
+			System.out.println("Duration (mins): " + (distance/object.speed)*60);
+			iconPathTransition.setDuration(Duration.minutes((distance/object.speed)*60));
 			masterTransition.getChildren().add(iconPathTransition);
-			if (labelText != null) {
+			/*if (labelText != null) {
 				PathTransition labelPathTransition = new PathTransition();
 				labelPathTransition.setOrientation(PathTransition.OrientationType.ORTHOGONAL_TO_TANGENT);
 				labelPathTransition.setPath(labelPath);
 				labelPathTransition.setNode(labelText);
 				labelPathTransition.setInterpolator(Interpolator.LINEAR);
-				labelPathTransition.setDuration(new Duration(distance/speed));
+				labelPathTransition.setDuration(new Duration((distance/speed)*60*60*1000));
 				masterTransition.getChildren().add(labelPathTransition);
 				if (labelBackground != null) {
 					PathTransition labelBackgroundPathTransition = new PathTransition();
@@ -279,50 +248,53 @@ public class TrackingActivity extends Application {
 					labelBackgroundPathTransition.setPath(labelPath);
 					labelBackgroundPathTransition.setNode(labelText);
 					labelBackgroundPathTransition.setInterpolator(Interpolator.LINEAR);
-					labelBackgroundPathTransition.setDuration(new Duration(distance/speed));
-					masterTransition.getChildren().add(labelPathTransition);
+					labelBackgroundPathTransition.setDuration(new Duration((distance/speed)*60*60*1000));
+					masterTransition.getChildren().add(labelBackgroundPathTransition);
 				}
-			}
+			}*/
 		}
 		
-		public double[] getLabelRelativePosition(double targetX, double targetY) {
+		public void setLabelRelativePosition() {
 			switch (label.position) {
 				case RIGHT:
-					return new double[] {targetX+label.size*label.text.length()/2.5, targetY};
+					labelText.setX(labelText.getX()-(label.size*label.value.length()/2.5));
+					break;
 				case LEFT:
-					return new double[] {targetX-label.size*label.text.length()/3.2, targetY};
+					labelText.setX(labelText.getX()+(label.size*label.value.length()/3.2));
+					break;
 				case ABOVE:
-					return new double[] {targetX, targetY-label.size};
+					labelText.setY(labelText.getY()-label.size);
+					break;
 				case BELOW:
-					return new double[] {targetX, targetY+label.size};
-				default:
-					return new double[] {targetX, targetY};
+					labelText.setY(labelText.getY()+label.size);
+					break;
 			}
-		}
-	}
-	
-	private class GraphicalStationaryObject extends GraphicalObject {
-		public GraphicalStationaryObject(Waypoint waypoint) {
-			super(waypoint);
-			waypoints.put(waypoint, drawIcon(waypoint));
 		}
 	}
 	
 	/**
-	 * Given a set of coordinates in pixels, returns the distance between them in nautical miles.
-	 * @param x1
-	 * @param y1
-	 * @param x2
-	 * @param y2
-	 * @return
+	 * Visually represents a waypoint.
 	 */
-	public double getRealDistance(double x1, double y1, double x2, double y2) {
-		if (model.x > model.y) {
-			return Math.sqrt(Math.pow(((x2-x1)*(model.x/model.y)), 2)+Math.pow((y1-y2),2));
-		} else if (model.y > model.x) {
-			return Math.sqrt(Math.pow((x2-x1), 2)+Math.pow(((y1-y2)*(model.y/model.x)),2));
-		} else {
-			return Math.sqrt(Math.pow((x2-x1), 2)+Math.pow((y1-y2),2));
+	private class GraphicalStationaryObject extends GraphicalObject {
+		public GraphicalStationaryObject(WaypointObject waypoint) {
+			super(waypoint);
+			drawConnectors(waypoint);
+		}
+		
+		/**
+		 * Draws all Connectors leading from this Waypoint to others.
+		 * @param waypoint : The Waypoint which this object is built from.
+		 */
+		private void drawConnectors(WaypointObject waypoint) {
+			for (Connector connector: waypoint.connectors) {
+				GraphicalStationaryObject destination = waypoints.get(connector.destination);
+				Line line = new Line(x, y, destination.x, destination.y);
+				line.setStroke(connector.color);
+				line.setStrokeWidth(connector.width);
+				root.getChildren().add(line);
+				destination.graphicalIcon.toFront();
+			}
+			graphicalIcon.toFront();
 		}
 	}
 }

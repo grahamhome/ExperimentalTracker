@@ -1,125 +1,191 @@
 package code;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 
 import javafx.scene.paint.Color;
 
 /**
  * This class represents the configuration for an MIT experiment.
  * @author Graham Home <grahamhome333@gmail.com>
- *
  */
 public class ExperimentModel {
 	
-	public String name;
-	public float x, y, updateRate;
-	public javafx.scene.paint.Color mapColor;
-	public File mapImage;
-	public double duration;
-	public double clickRadius;
-	public String introduction;
-	public ArrayList<Waypoint> waypoints = new ArrayList<>();
-	public ArrayList<Connector> connectors = new ArrayList<>();
-	public ArrayList<MovingObject> objects = new ArrayList<>();
-	public ArrayList<MaskEvent> maskEvents = new ArrayList<>();
-	public ArrayList<Query> queries = new ArrayList<>();
+	public static String name;
+	public static float x, y, updateRate;
+	public static javafx.scene.paint.Color mapColor;
+	public static File mapImage;
+	public static double duration;
+	public static double clickRadius;
+	public static String introduction;
+	public static HashMap<String, WaypointObject> waypoints = new HashMap<>();
+	public static HashMap<String, MovingObject> objects = new HashMap<>();
+	public static ArrayList<MaskEvent> maskEvents = new ArrayList<>();
+	public static ArrayList<Query> queries = new ArrayList<>();
 	
-	public abstract static class Icon {
+	/**
+	 * Resets the configuration to its initial state.
+	 */
+	public static void reset() {
+		name = null;
+		x = 0;
+		y = 0;
+		updateRate = 0;
+		mapColor = null;
+		mapImage = null;
+		duration = 0;
+		clickRadius = 0;
+		introduction = null;
+		waypoints = null;
+		objects = null;
+		maskEvents = null;
+		queries = null;
+	}
+	
+	/**
+	 * Contains attributes common to all objects depicted as text or icons.
+	 */
+	public abstract static class TextObject {
 		public float x,y,size;
-		public String iconCode;
+		public String value;
 		public Color color;
 	}
 	
-	public static class Waypoint extends Icon {
+	/**
+	 * Represents a waypoint: a non-moving object optionally depicted as an icon.
+	 * Waypoints have zero or more Connectors, which visually connect them to other Waypoints.
+	 */
+	public static class WaypointObject extends TextObject {
 		public String name;
+		public ArrayList<Connector> connectors = new ArrayList<>();
 		
+		/**
+		 * Determines if one waypoint is equal to another.
+		 */
 		@Override
 		public boolean equals(Object waypointToCompare) {
-			if (!(waypointToCompare instanceof Waypoint)) return false;
-			Waypoint waypoint = (Waypoint) waypointToCompare;
-			return ((x == waypoint.x && y == waypoint.y) || (x == y && x == waypoint.y && y == waypoint.x));
-		}
-		
-	}
-	
-	public Waypoint getWaypoint(String name) {
-		for (Waypoint point : waypoints) {
-			if (point.name.equals(name)) {
-				return point;
+			if (!(waypointToCompare instanceof WaypointObject)) {
+				return false;
+			} else {
+				WaypointObject waypoint = (WaypointObject) waypointToCompare;
+				return ((x == waypoint.x && y == waypoint.y) || (x == y && (x == waypoint.y || y == waypoint.x)));
 			}
 		}
-		return null;
-	}
-	
-	public MovingObject getMovingObject(String name) {
-		for (MovingObject mover : objects) {
-			if (mover.name.equals(name)) {
-				return mover;
-			}
-		}
-		return null;
-	}
-	
-	public static class Connector {
-		public Waypoint point1, point2;
-		public int width;
-		public javafx.scene.paint.Color color;
 		
-		public static final int maxWidth = 10;
-		
-		@Override
-		public boolean equals(Object connectorToCompare) {
-			if (!(connectorToCompare instanceof Connector)) return false;
-			Connector connector = (Connector) connectorToCompare;
-			return ((point1.equals(connector.point1) && point2.equals(connector.point2)) || (point1.equals(connector.point2) && point2.equals(connector.point1)));
+		/**
+		 * Determines if a waypoint is equal to any other.
+		 */
+		public boolean alreadyExists() {
+			return waypoints.values().stream().anyMatch(w -> this.equals(w));
 		}
+		
+		/**
+		 * Determines whether or not two Waypoints are connected.
+		 */
+		public Boolean isConnected(WaypointObject waypointToCheck) {
+			return connectors.stream().anyMatch(c -> c.destination.equals(waypointToCheck)) ||
+					waypointToCheck.connectors.stream().anyMatch(c -> c.destination.equals(this));
+		}
+		
+		/**
+		 * Sets the icon of the waypoint.
+		 * @param value : A string value containing the hexadecimal representation of an icon.
+		 * @throws IllegalArgumentException: if the given string does not contain a hexadecimal value which denotes a Unicode character.
+		 */
+		public void setValue(String value) throws IllegalArgumentException {
+			this.value = Character.toString(Character.toChars(Integer.parseInt(value, 16))[0]);
+		}
+		
 	}
 	
-	public static class MovingObject extends Icon {
-		public String name;
+	/**
+	 * Represents a moving object, which is depicted as an icon and moves between a sequence of Waypoints.
+	 */
+	public static class MovingObject extends WaypointObject {
 		public int numDots;
-		public float speed, leaderLength;
-		public ArrayList<Waypoint> pathPoints = new ArrayList<>();
-		public Label label;
+		public double speed;
+		public float leaderLength;
+		public ArrayList<WaypointObject> pathPoints = new ArrayList<>();
+		public MovingObjectLabel label;
 		
 		public static final int maxLeaderLength = 10;
 		public static final int maxDots = 10;
 		
-		@Override
-		public boolean equals(Object moverToCompare) {
-			if (!(moverToCompare instanceof MovingObject)) return false;
-			MovingObject mover = (MovingObject) moverToCompare;
-			if (mover.speed != speed || mover.pathPoints.size() != pathPoints.size()) return false;
-			Iterator<Waypoint> pathPointsIterator1 = mover.pathPoints.iterator();
-			Iterator<Waypoint> pathPointsIterator2 = pathPoints.iterator();
-			while (pathPointsIterator1.hasNext() && pathPointsIterator2.hasNext()) {
-				if (!pathPointsIterator1.next().equals(pathPointsIterator2.next())) {
-					return false;
+		/**
+		 * Determines if one MovingObject is equal to any other by comparing their speeds and paths.
+		 */
+		public boolean alreadyExists() {
+			for (MovingObject object : objects.values()) {
+				if (object.speed == speed && object.pathPoints.size() == pathPoints.size()) {
+					boolean exists = true;
+					Iterator<WaypointObject> pathPointsIterator1 = object.pathPoints.iterator();
+					Iterator<WaypointObject> pathPointsIterator2 = pathPoints.iterator();
+					while (pathPointsIterator1.hasNext() && pathPointsIterator2.hasNext()) {
+						if (!pathPointsIterator1.next().equals(pathPointsIterator2.next())) {
+							exists = false;
+						}
+					}
+					if (exists) return exists;
 				}
 			}
-			return true;
+			return false;
 		}
 	}
 	
-	public static class Label {
+	/**
+	 * Represents the label of a MovingObject, which is depicted as a text string with an optional colored background,
+	 * is positioned relative to the MovingObject to which it belongs, and moves between the same Waypoints as the MovingObject
+	 * to which it belongs, at the same speed. 
+	 */
+	public static class MovingObjectLabel extends WaypointObject {
 		public enum Position {
 			LEFT, RIGHT, ABOVE, BELOW
 		}
 		public Position position;
-		public Color backgroundColor, foregroundColor;
-		public String text;
-		public float size;
+		public Color backgroundColor;
 		
+		/**
+		 * Sets the string value of the label.
+		 */
+		public void setValue(String text) {
+			this.value = text;
+		}
 	}
 	
+	/**
+	 * Represents a connector from one Waypoint to another. Has a color and width.
+	 */
+	public static class Connector {
+		public WaypointObject destination;
+		public int width;
+		public javafx.scene.paint.Color color;
+		
+		public static final int maxWidth = 10;
+	}
+	
+	/**
+	 * Represents a "mask event", in which an image appears over the map at a specific time for a specific duration.
+	 */
 	public static class MaskEvent {
 		public File image;
 		public double startTime, endTime;
+		
+		/**
+		 * Determines if one MaskEvent conflicts (overlaps) with any other by comparing their start and end times.
+		 */
+		public boolean conflictsWithOther() {
+			return maskEvents.stream().anyMatch(e -> ((startTime < e.startTime) && (endTime > e.startTime)) ||
+					((startTime > e.endTime) && (endTime < e.startTime)));
+		}
 	}
 	
+	/**
+	 * Represents a "query", a prompt which appears on-screen at a specific time for a specific duration 
+	 * and prompts the user to click somewhere on the screen or to enter a text response.
+	 * @author Graham
+	 *
+	 */
 	public static class Query {
 		public String text;
 		public boolean acceptsText; // If false, accepts a mouse click as input

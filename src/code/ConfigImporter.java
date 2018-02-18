@@ -12,7 +12,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import code.ExperimentModel.*;
-import code.ExperimentModel.Label.Position;
+import code.ExperimentModel.MovingObjectLabel.Position;
 import javafx.scene.paint.Color;
 
 /**
@@ -69,7 +69,7 @@ public class ConfigImporter {
 		Iterator<Integer> lineNumbers = lineNumberList.iterator();
 		
 		if (!lineNumbers.hasNext()) { report("File contains no values"); return null; }
-		if ((model.name = configLines.get(lineNumber = lineNumbers.next())).isEmpty()) {
+		if ((ExperimentModel.name = configLines.get(lineNumber = lineNumbers.next())).isEmpty()) {
 			report("Configuration name may not be empty");
 		}
 		
@@ -81,21 +81,21 @@ public class ConfigImporter {
 			valid = false;
 		} else {
 			try {
-				if (((model.x = Float.parseFloat(mapValues[0])) < 0) || (model.y = Float.parseFloat(mapValues[1])) < 0) {
+				if (((ExperimentModel.x = Float.parseFloat(mapValues[0])) < 0) || (ExperimentModel.y = Float.parseFloat(mapValues[1])) < 0) {
 					report("Map dimensions must be greater than 0");
 					valid = false;
 				}
 			} catch (NumberFormatException e) { report("One or more map dimension values are not a number"); }
 			if (mapValues[2].startsWith("#") ) {
 				try {
-					model.mapColor = javafx.scene.paint.Color.valueOf(mapValues[2]);
+					ExperimentModel.mapColor = javafx.scene.paint.Color.valueOf(mapValues[2]);
 				} catch (IllegalArgumentException e) {
 					report("Map color value is not a valid color code");
 					valid = false;
 				}
 			} else {
 				String imageName = mapValues[2];
-				if (!(model.mapImage = new File(directory.toString() + IMG_DIR + imageName)).exists() || !model.mapImage.isFile()) {
+				if (!(ExperimentModel.mapImage = new File(directory.toString() + IMG_DIR + imageName)).exists() || !ExperimentModel.mapImage.isFile()) {
 					report("Image file " + imageName + " not found in the " + IMG_DIR + " folder of this configuration folder");
 					valid = false;
 				} else {
@@ -114,11 +114,11 @@ public class ConfigImporter {
 		if (!valid) { return null; } // Continuing with an invalid map would cause most other config lines to fail
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
 		try {
-			model.updateRate = Float.parseFloat(configLines.get(lineNumber = lineNumbers.next()));
+			ExperimentModel.updateRate = Float.parseFloat(configLines.get(lineNumber = lineNumbers.next()));
 		} catch (NumberFormatException e) { report("Screen refresh rate is not a number"); }
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
-		model.duration = parseTime(configLines.get(lineNumber = lineNumbers.next()));
+		ExperimentModel.duration = parseTime(configLines.get(lineNumber = lineNumbers.next()));
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
 		try {
@@ -126,7 +126,7 @@ public class ConfigImporter {
 			if (clickRadius <= 0 || clickRadius > 100) {
 				report("Click radius must be greater than 0 and no more than 100");
 			} else {
-				model.clickRadius = clickRadius;
+				ExperimentModel.clickRadius = clickRadius;
 			}
 		} catch (NumberFormatException e) {
 			report("Click radius must be a number");
@@ -158,8 +158,8 @@ public class ConfigImporter {
 				if (waypointData.length != 6 && waypointData.length != 3) { 
 					report("Waypoint data must contain either 6 values (for visible waypoints) or 3 values (for invisible waypoints)"); 
 				} else {
-					Waypoint waypoint = new Waypoint();
-					if (model.getWaypoint((waypoint.name = waypointData[0])) != null) {
+					WaypointObject waypoint = new WaypointObject();
+					if (ExperimentModel.waypoints.containsKey(waypoint.name = waypointData[0])) {
 						report("A waypoint with this name already exists");
 						valid = false;
 					}
@@ -172,7 +172,7 @@ public class ConfigImporter {
 					}
 					if (waypointData.length == 6) {
 						try {
-							waypoint.iconCode = waypointData[3];
+							waypoint.setValue(waypointData[3]);
 						} catch (IllegalArgumentException e) {
 							report("Invalid character code for waypoint symbol");
 							valid = false;
@@ -191,10 +191,10 @@ public class ConfigImporter {
 						}
 					}
 					if (valid) {
-						if (model.waypoints.contains(waypoint)) {
+						if (waypoint.alreadyExists()) {
 							report("A waypoint with these coordinates already exists");
 						} else {
-							model.waypoints.add(waypoint);
+							ExperimentModel.waypoints.put(waypoint.name, waypoint);
 						}
 					}
 				}
@@ -205,15 +205,16 @@ public class ConfigImporter {
 				} else {
 					Connector connector = new Connector();
 					valid = true;
-					if ((connector.point1 = model.getWaypoint(connectorData[0])) == null 
-							|| (connector.point2 = model.getWaypoint(connectorData[1])) == null) 
+					WaypointObject source;
+					if ((source = ExperimentModel.waypoints.get(connectorData[0])) == null
+							|| (connector.destination = ExperimentModel.waypoints.get(connectorData[1])) == null) 
 					{
 						report("One or both of the waypoints to be connected do not exist in this configuration");
 						valid = false;
-					} else if (connector.point1.equals(connector.point2)) { 
+					} else if (source.equals(connector.destination)) { 
 						report("Connector must connect two unique waypoints"); 
 						valid = false;
-					} else if (connector.point1.iconCode == null || connector.point2.iconCode == null) {
+					} else if (source.value == null || connector.destination.value == null) {
 						report("Connectors may only be used to connect visible waypoints");
 						valid = false;
 					}
@@ -233,10 +234,10 @@ public class ConfigImporter {
 						valid = false;
 					}
 					if (valid) {
-						if (model.connectors.contains(connector)) {
+						if (source.isConnected(connector.destination)) {
 							report("A connector between these waypoints already exists");
 						} else {
-							model.connectors.add(connector);
+							source.connectors.add(connector);
 						}
 					}
 				}
@@ -256,7 +257,7 @@ public class ConfigImporter {
 				valid = true;
 				mover.name = moverData[0];
 				try {
-					mover.iconCode = moverData[1];
+					mover.setValue(moverData[1]);
 				} catch (IllegalArgumentException e) {
 					report("Invalid character code for moving object symbol");
 					valid = false;
@@ -301,7 +302,7 @@ public class ConfigImporter {
 				}
 				String[] waypoints = moverData[7].split(SECONDARY_SEPARATOR);
 				for (String waypointName : waypoints) {
-					Waypoint waypoint = model.getWaypoint(waypointName);
+					WaypointObject waypoint = ExperimentModel.waypoints.get(waypointName);
 					if (waypoint == null) {
 						report("The waypoint " + waypointName + " was not specified in this configuration");
 						valid = false;
@@ -314,12 +315,12 @@ public class ConfigImporter {
 					valid = false;
 				}
 				if (valid) {
-					if (model.objects.contains(mover)) {
-						report("A mover with the same speed and path already exists");
+					if (mover.alreadyExists()) {
+						report("A moving object with the same speed and path already exists");
 					} else {
 						mover.x = mover.pathPoints.get(0).x;
 						mover.y = mover.pathPoints.get(0).y;
-						model.objects.add(mover);
+						ExperimentModel.objects.put(mover.name, mover);
 					}
 				}
 			}
@@ -336,8 +337,8 @@ public class ConfigImporter {
 				report("Label data must contain exactly 6 values");
 			} else {
 				valid = true;
-				Label label = new Label();
-				MovingObject mover = model.getMovingObject(labelData[0]);
+				MovingObjectLabel label = new MovingObjectLabel();
+				MovingObject mover = ExperimentModel.objects.get(labelData[0]);
 				if (mover == null) {
 					report("The moving object " + labelData[0] + " was not specified in this configuration");
 					valid = false;
@@ -371,10 +372,10 @@ public class ConfigImporter {
 					}
 				}
 				if (labelData[3].length() == 0) {
-					label.foregroundColor = Color.TRANSPARENT;
+					label.color = Color.TRANSPARENT;
 				} else {
 					try {
-						label.foregroundColor = Color.valueOf(labelData[3]);
+						label.color = Color.valueOf(labelData[3]);
 					} catch (IllegalArgumentException e) {
 						report("Label text color is not a valid color value");
 						valid = false;
@@ -386,7 +387,8 @@ public class ConfigImporter {
 					report("Label size must be a numeric value");
 					valid = false;
 				}
-				if ((label.text = labelData[5]).isEmpty()) {
+				label.setValue(labelData[5]);
+				if (label.value.isEmpty()) {
 					report("Label may not be empty");
 					valid = false;
 				}
@@ -427,14 +429,16 @@ public class ConfigImporter {
 					}
 					maskEvent.startTime = parseTime(maskData[1]);
 					maskEvent.endTime = parseTime(maskData[2]);
-					if (maskEvent.startTime == -1 || maskEvent.endTime == -1) {
+					if (maskEvent.startTime < 0 || maskEvent.endTime > ExperimentModel.duration) {
+						report("Mask appearances must start before the beginning and finish before the end of the experiment");
 						valid = false;
-					} else if (maskEvent.endTime-maskEvent.startTime > model.duration) {
-						report("Mask appearances must end before the end of the experiment");
+					}
+					if (maskEvent.conflictsWithOther()) {
+						report("Mask event would conflict with another mask event which already exists");
 						valid = false;
 					}
 					if (valid) {
-						model.maskEvents.add(maskEvent);
+						ExperimentModel.maskEvents.add(maskEvent);
 					}
 				}
 			} else {
@@ -464,7 +468,7 @@ public class ConfigImporter {
 						if ((query.endTime = parseTime(endTime)) == -1) {
 							valid = false;
 						} else {
-							if (query.endTime-query.startTime > model.duration) {
+							if (query.endTime-query.startTime > ExperimentModel.duration) {
 								report("Query events must end before the end of the experiment");
 								valid = false;
 							}
@@ -472,7 +476,7 @@ public class ConfigImporter {
 					}
 					query.text = queryData[3];
 					if (valid) {
-						model.queries.add(query);
+						ExperimentModel.queries.add(query);
 					}
 				}
 			}

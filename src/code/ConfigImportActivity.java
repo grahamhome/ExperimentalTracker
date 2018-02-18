@@ -37,7 +37,7 @@ public class ConfigImportActivity extends Application {
 		File selection = showConfigSelector();
 		if (selection != null) {
 			try {
-				ExperimentModel model = ConfigImporter.run(selection);
+				ConfigImporter.run(selection);
 				if (!ConfigImporter.errors.isEmpty()) {
 					StringBuilder errors = new StringBuilder("The following errors were encountered in the selected configuration file:");
 					for (String error : ConfigImporter.errors) {
@@ -51,13 +51,15 @@ public class ConfigImportActivity extends Application {
 					alert.getDialogPane().setContent(errorDisplay);
 					alert.showAndWait();
 				} else {
-					new TrackingActivity(model).start(stage);
+					// TODO: Show subject number dialog box here
+					new TrackingActivity().start(stage);
 				}
 			} catch (FileNotFoundException e) {
 				new Alert(AlertType.ERROR, "No configuration file was found in the selected directory. Please try a different directory.", ButtonType.OK).showAndWait();
-			
 			} catch (IOException e) {
 				new Alert(AlertType.ERROR, "An error occurred while reading the configuration file. Please try again.", ButtonType.OK).showAndWait();
+			} finally {
+				ExperimentModel.reset();
 			}
 		}
 	}
