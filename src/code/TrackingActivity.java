@@ -13,6 +13,7 @@ import code.ExperimentModel.Connector;
 import code.ExperimentModel.MaskEvent;
 import code.ExperimentModel.TextObject;
 import code.ExperimentModel.MovingObjectLabel;
+import code.ExperimentModel.Query;
 import code.ExperimentModel.MovingObject;
 import code.ExperimentModel.WaypointObject;
 import javafx.animation.FadeTransition;
@@ -22,13 +23,24 @@ import javafx.animation.PathTransition;
 import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
 import javafx.application.Application;
+import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.LineTo;
 import javafx.scene.shape.MoveTo;
@@ -80,6 +92,7 @@ public class TrackingActivity extends Application {
 		map.drawWaypoints();
 		map.drawObjects();
 		map.scheduleMaskAppearances();
+		map.scheduleQueryAppearances();
 		stage.show();
 		masterTransition.play();
 		// TODO: Show outro message here
@@ -159,16 +172,67 @@ public class TrackingActivity extends Application {
 						mask.setOpacity(1);
 						try {
 							Thread.sleep((long)(event.endTime-event.startTime));
+							maskBackground.setOpacity(0);
+							mask.setOpacity(0);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
-						maskBackground.setOpacity(0);
-						mask.setOpacity(0);
 					}
 				}, (long)event.startTime, TimeUnit.MILLISECONDS);
 			}
-				
 		}
+		
+		public void scheduleQueryAppearances() {
+			for (Query query : ExperimentModel.queries) {
+				VBox queryBox = new VBox(5);
+				queryBox.setAlignment(Pos.CENTER);
+				queryBox.setMaxWidth(Region.USE_PREF_SIZE);
+				queryBox.setMaxHeight(Region.USE_PREF_SIZE);
+				Label queryInstructions = new Label(query.text);
+				queryInstructions.setBackground(new Background(new BackgroundFill(Color.WHITE,null,null)));
+				queryInstructions.setMinWidth(query.text.length()*7.52);
+				queryInstructions.setMaxWidth(query.text.length()*7.52);
+				queryBox.getChildren().add(queryInstructions);
+				queryBox.setVisible(false);
+				TextField queryField = new TextField();
+				if (query.acceptsText) {
+					
+					queryBox.getChildren().add(queryField);
+				}
+				queryBox.relocate(((query.x*(mapWidth/ExperimentModel.x))+mapOffsetX)-(query.text.length()*3.76), 
+						((query.y*(mapHeight/ExperimentModel.y))+mapOffsetY)-(query.acceptsText ? 20 : 10));
+				root.getChildren().add(queryBox);
+				queryBox.toFront();
+				ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+				service.schedule(new Runnable() {
+					@Override
+					public void run() {
+						queryBox.setVisible(true);
+						if (!query.wait) {
+							try {
+								Thread.sleep((long)(query.endTime-query.startTime));
+								queryBox.setVisible(false);
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+						} else {
+							if (query.acceptsText) {
+								queryField.setOnKeyPressed(e -> {
+									if (e.getCode().equals(KeyCode.ENTER)) {
+										queryBox.setVisible(false);
+									}
+								});
+							} else {
+								root.setOnMouseClicked(e -> {
+									queryBox.setVisible(false);
+								});
+							}
+						}
+					}
+				}, (long)query.startTime, TimeUnit.MILLISECONDS);
+			}
+		}
+		
 	}
 	
 	private abstract class GraphicalObject {

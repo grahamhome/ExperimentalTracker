@@ -191,5 +191,6 @@ public class ExperimentModel {
 		public boolean acceptsText; // If false, accepts a mouse click as input
 		public double startTime, endTime;
 		public boolean wait = false;
+		public float x, y;
 	}
 }

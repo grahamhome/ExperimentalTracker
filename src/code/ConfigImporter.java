@@ -490,7 +490,18 @@ public class ConfigImporter {
 							}
 						}
 					}
-					query.text = queryData[3];
+					try {
+						if ((query.x = Float.parseFloat(queryData[3])) > ExperimentModel.x ||
+								(query.y = Float.parseFloat(queryData[4])) > ExperimentModel.y) {
+							report("Query must be positioned within map boundaries");
+							valid = false;
+						}
+						
+					} catch (NumberFormatException e) {
+						report("Query position values must be numeric values");
+						valid = false;
+					}
+					query.text = queryData[5];
 					if (valid) {
 						ExperimentModel.queries.add(query);
 					}
