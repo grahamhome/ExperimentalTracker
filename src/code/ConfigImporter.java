@@ -409,7 +409,11 @@ public class ConfigImporter {
 					valid = false;
 				}
 				if (valid) {
-					mover.label = label;
+					if (mover.label != null) {
+						report("A label has already been specified for this object");
+					} else {
+						mover.label = label;
+					}
 				}
 			}
 			if (lineNumbers.hasNext()) {

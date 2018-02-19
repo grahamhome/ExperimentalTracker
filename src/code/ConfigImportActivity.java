@@ -82,23 +82,6 @@ public class ConfigImportActivity extends Application {
 		root.getChildren().add(importConfigBtn);
 	}
 	
-	private void buildIntroTextScreen() {
-		root.getChildren().clear();
-		TextArea introDisplay = new TextArea();
-		introDisplay.setEditable(false);
-		introDisplay.setText(ExperimentModel.introduction);
-		Alert alert = new Alert(AlertType.INFORMATION, null, ButtonType.OK);
-		alert.getDialogPane().setContent(introDisplay);
-		alert.setTitle("Instructions");
-		alert.setHeaderText("Instructions");
-		alert.showAndWait();
-		try {
-			new TrackingActivity().start(stage);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
 	private void buildSubjectNumberScreen() {
 		root.getChildren().clear();
 		root.setPadding(new Insets(0,10,0,10));
@@ -118,8 +101,12 @@ public class ConfigImportActivity extends Application {
 		boxBox.setAlignment(Pos.CENTER);
 		boxBox.setMaxHeight(Region.USE_PREF_SIZE);
 		enterButton.setMinWidth(Region.USE_PREF_SIZE);
-		enterButton.setOnAction((e) -> {
-			buildIntroTextScreen();
+		enterButton.setOnMouseReleased((e) -> {
+			try {
+				new TrackingActivity().start(stage);
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
 		});
 		root.getChildren().add(boxBox);
 	}
