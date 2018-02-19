@@ -208,10 +208,9 @@ public class TrackingActivity extends Application {
 			for (WaypointObject waypointObject : pathPoints) {
 				GraphicalStationaryObject waypoint = waypoints.get(waypointObject);
 				distance += Math.sqrt(Math.pow(waypointObject.x-previous.x,2)+Math.pow(waypointObject.y-previous.y,2));
-				double angle = Math.atan2(waypointObject.x-previous.x, waypointObject.y-previous.y);
 				iconPath.getElements().add(new LineTo(waypoint.x, waypoint.y));
 				if (labelText != null) {
-					double[] coords = getLabelRelativePosition(waypoint.x, waypoint.y);
+					double[] coords = getLabelRelativePosition(waypoint.graphicalIcon.getX(), waypoint.graphicalIcon.getY());
 					labelPath.getElements().add(new LineTo(coords[0], coords[1]));
 					if (labelBackground != null) {
 						labelBackgroundPath.getElements().add(new LineTo(coords[0], coords[1]));

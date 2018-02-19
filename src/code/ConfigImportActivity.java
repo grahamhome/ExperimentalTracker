@@ -4,13 +4,20 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
@@ -34,6 +41,7 @@ public class ConfigImportActivity extends Application {
 	}
 	
 	private void importConfiguration() throws Exception {
+		ExperimentModel.reset();
 		File selection = showConfigSelector();
 		if (selection != null) {
 			try {
@@ -51,15 +59,12 @@ public class ConfigImportActivity extends Application {
 					alert.getDialogPane().setContent(errorDisplay);
 					alert.showAndWait();
 				} else {
-					// TODO: Show subject number dialog box here
-					new TrackingActivity().start(stage);
+					buildSubjectNumberScreen();
 				}
 			} catch (FileNotFoundException e) {
 				new Alert(AlertType.ERROR, "No configuration file was found in the selected directory. Please try a different directory.", ButtonType.OK).showAndWait();
 			} catch (IOException e) {
 				new Alert(AlertType.ERROR, "An error occurred while reading the configuration file. Please try again.", ButtonType.OK).showAndWait();
-			} finally {
-				ExperimentModel.reset();
 			}
 		}
 	}
@@ -75,6 +80,48 @@ public class ConfigImportActivity extends Application {
 			}
 		});
 		root.getChildren().add(importConfigBtn);
+	}
+	
+	private void buildIntroTextScreen() {
+		root.getChildren().clear();
+		TextArea introDisplay = new TextArea();
+		introDisplay.setEditable(false);
+		introDisplay.setText(ExperimentModel.introduction);
+		Alert alert = new Alert(AlertType.INFORMATION, null, ButtonType.OK);
+		alert.getDialogPane().setContent(introDisplay);
+		alert.setTitle("Instructions");
+		alert.setHeaderText("Instructions");
+		alert.showAndWait();
+		try {
+			new TrackingActivity().start(stage);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void buildSubjectNumberScreen() {
+		root.getChildren().clear();
+		root.setPadding(new Insets(0,10,0,10));
+		Label label = new Label("Subject Number");
+		label.setMinWidth(Region.USE_PREF_SIZE);
+		label.setAlignment(Pos.CENTER_LEFT);
+		TextField numberField = new TextField();
+		numberField.setMinWidth(50);
+		HBox fieldBox = new HBox(5, label, numberField);
+		fieldBox.setMaxHeight(Region.USE_PREF_SIZE);
+		fieldBox.setAlignment(Pos.CENTER_LEFT);
+		Button enterButton = new Button("Begin Experiment");
+		HBox buttonBox = new HBox(enterButton);
+		buttonBox.setMaxHeight(Region.USE_PREF_SIZE);
+		buttonBox.setAlignment(Pos.CENTER);
+		VBox boxBox = new VBox(10, fieldBox, buttonBox);
+		boxBox.setAlignment(Pos.CENTER);
+		boxBox.setMaxHeight(Region.USE_PREF_SIZE);
+		enterButton.setMinWidth(Region.USE_PREF_SIZE);
+		enterButton.setOnAction((e) -> {
+			buildIntroTextScreen();
+		});
+		root.getChildren().add(boxBox);
 	}
 	
 	/**

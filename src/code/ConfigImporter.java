@@ -144,6 +144,22 @@ public class ConfigImporter {
 			}
 			if (!ext.equals("txt")) {
 				report("Introduction message file must be in .txt format");
+			} else {
+				try {
+					FileReader introFileReader = new FileReader(introFile);
+					BufferedReader introReader = new BufferedReader(introFileReader);
+					StringBuilder intro = new StringBuilder();
+					String line;
+					while ((line = introReader.readLine()) != null) {
+						if (intro.length() > 0) intro.append("\n");
+						intro.append(line);
+					}
+					introReader.close();
+					introFileReader.close();
+					ExperimentModel.introduction = intro.toString();
+				} catch (IOException e) {
+					report("Error reading from introduction file. Please close any text editors using the file and try again");
+				}
 			}
 		}
 		
