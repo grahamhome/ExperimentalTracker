@@ -1,6 +1,8 @@
 package code;
 
+import java.io.IOException;
 import java.net.URL;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Timer;
@@ -24,6 +26,7 @@ import javafx.animation.PathTransition;
 import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
@@ -44,6 +47,7 @@ import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
@@ -76,6 +80,10 @@ public class TrackingActivity extends Application {
 	private static final int FONT_SIZE = 30; // Determines the size of the waypoints & moving objects
 	private URL iconFontURL,textFontURL;
 	private ParallelTransition masterTransition = new ParallelTransition();
+	private Rectangle introBackground;
+	private VBox introBox;
+	private TextArea introDisplay;
+	private Button introButton;
 	
 	public TrackingActivity() {
 		iconFontURL = TrackingActivity.class.getResource("/Font-Awesome-5-Free-Solid-900.otf");
@@ -97,38 +105,63 @@ public class TrackingActivity extends Application {
 		map.drawMap();
 		map.drawWaypoints();
 		map.drawObjects();
-		VBox introBox = buildIntroTextScreen();
+		buildIntroTextScreen();
 		stage.show();
 		introBox.relocate((stageWidth-introBox.getWidth())/2, (stageHeight-introBox.getHeight())/2);
 		introBox.setVisible(true);
 	}
 	
-	private VBox buildIntroTextScreen() {
-		Rectangle introBackground = new Rectangle(stageWidth, stageHeight);
+	private void buildIntroTextScreen() { // TODO: use scene.setRoot to add these elements. Try using Platform.runLater to relocate introBox in this method.
+		introBackground = new Rectangle(stageWidth, stageHeight);
 		introBackground.setFill(Color.BLACK);
-		VBox introBox = new VBox(5);
+		introBox = new VBox(5);
 		introBox.setPadding(new Insets(5));
 		introBox.setBackground(new Background(new BackgroundFill(Color.WHITE, null, null)));
 		introBox.setAlignment(Pos.CENTER);
 		introBox.setMaxWidth(Region.USE_PREF_SIZE);
 		introBox.setMaxHeight(Region.USE_PREF_SIZE);
-		TextArea introDisplay = new TextArea();
+		introDisplay = new TextArea();
 		introDisplay.setEditable(false);
 		introDisplay.setText(ExperimentModel.introduction);
 		introDisplay.setWrapText(true);
-		Button startButton = new Button("Start");
-		startButton.setOnMouseReleased((e) -> {
-			root.getChildren().remove(introBackground);
-			root.getChildren().remove(introBox);
+		introButton = new Button("Start");
+		introButton.setOnMouseReleased((e) -> {
+			root.getChildren().removeAll(introBackground, introBox);
 			masterTransition.play();
 			map.scheduleMaskAppearances();
 			map.scheduleQueryAppearances();
-			// TODO: Show outro message here
+			scheduleExperimentEnd();
 		});
-		introBox.getChildren().addAll(introDisplay, startButton);
+		introBox.getChildren().addAll(introDisplay, introButton);
 		introBox.setVisible(false);
 		root.getChildren().addAll(introBackground, introBox);
-		return introBox;
+	}
+	
+	public void scheduleExperimentEnd() {
+		ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+		service.schedule(new Runnable() {
+			@Override
+			public void run() {
+				Platform.runLater(new Runnable() {
+					@Override
+					public void run() {
+						masterTransition.stop();
+						introDisplay.setText("The experiment has ended.");
+						introButton.setOnMouseReleased((e2) -> {
+							try {
+								System.exit(0);
+							} catch (Exception e1) {
+								e1.printStackTrace();
+							}
+							
+						});
+						scene.setRoot(new Group(introBackground, introBox));
+					}
+				});
+				
+			}
+			
+		}, (long)ExperimentModel.duration, TimeUnit.MILLISECONDS);
 	}
 	
 	/**
@@ -181,7 +214,7 @@ public class TrackingActivity extends Application {
 			}
 		}
 		
-		public void scheduleMaskAppearances() {
+		public void scheduleMaskAppearances() { // TODO: use Platform.runLater to add & completely remove masks from root
 			for (MaskEvent event : ExperimentModel.maskEvents) {
 				Rectangle maskBackground = new Rectangle(stageWidth, stageHeight);
 				maskBackground.setFill(Color.BLACK);
@@ -215,7 +248,7 @@ public class TrackingActivity extends Application {
 			}
 		}
 		
-		public void scheduleQueryAppearances() {
+		public void scheduleQueryAppearances() { // TODO: use Platform.runLater to add & completely remove queries from root
 			for (Query query : ExperimentModel.queries) {
 				VBox queryBox = new VBox(5);
 				queryBox.setPadding(new Insets(5));
