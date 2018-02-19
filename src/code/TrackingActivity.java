@@ -100,7 +100,7 @@ public class TrackingActivity extends Application {
 		VBox introBox = buildIntroTextScreen();
 		stage.show();
 		introBox.relocate((stageWidth-introBox.getWidth())/2, (stageHeight-introBox.getHeight())/2);
-		
+		introBox.setVisible(true);
 	}
 	
 	private VBox buildIntroTextScreen() {
@@ -126,6 +126,7 @@ public class TrackingActivity extends Application {
 			// TODO: Show outro message here
 		});
 		introBox.getChildren().addAll(introDisplay, startButton);
+		introBox.setVisible(false);
 		root.getChildren().addAll(introBackground, introBox);
 		return introBox;
 	}
@@ -315,13 +316,10 @@ public class TrackingActivity extends Application {
 				label = new Label(objectLabel.value);
 				label.setTextFill(objectLabel.color);
 				label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
-				label.setMinWidth(objectLabel.value.length()*7.52);
-				label.setMaxWidth(objectLabel.value.length()*7.52);
-				label.setMaxHeight(10);
-				label.setFont(Font.loadFont(textFontURL.toString(), 15));
-				double x1 = graphicalIcon.getX();
-				double y1 = graphicalIcon.getY();
-				label.relocate(graphicalIcon.getX()-(objectLabel.value.length()*3.76), graphicalIcon.getY()-10);
+				label.setMinWidth(objectLabel.value.length()*objectLabel.size/2.15);
+				label.setMaxWidth(objectLabel.value.length()*objectLabel.size/2.15);
+				label.setMaxHeight(objectLabel.size);
+				label.setFont(Font.loadFont(textFontURL.toString(), objectLabel.size));
 				root.getChildren().add(label);
 			}
 			generatePaths(object.pathPoints);
@@ -332,7 +330,8 @@ public class TrackingActivity extends Application {
 			iconPath.getElements().add(new MoveTo(graphicalIcon.getX(), graphicalIcon.getY()));
 			Path labelPath = new Path();
 			if (label != null) {
-				labelPath.getElements().add(new MoveTo(graphicalIcon.getX()-(objectLabel.value.length()*3.76), graphicalIcon.getY()-10));
+				double[] coords = getLabelRelativePosition(graphicalIcon);
+				labelPath.getElements().add(new MoveTo(coords[0], coords[1]));
 			}
 			double distance = 0;
 			WaypointObject previous = pathPoints.get(0);
@@ -341,7 +340,8 @@ public class TrackingActivity extends Application {
 				distance += Math.sqrt(Math.pow(waypointObject.x-previous.x,2)+Math.pow(waypointObject.y-previous.y,2));
 				iconPath.getElements().add(new LineTo(waypoint.x, waypoint.y));
 				if (label != null) {
-					labelPath.getElements().add(new LineTo(waypoint.graphicalIcon.getX()-(objectLabel.value.length()*3.76), waypoint.graphicalIcon.getY()-10));
+					double[] coords = getLabelRelativePosition(waypoint.graphicalIcon);
+					labelPath.getElements().add(new LineTo(coords[0], coords[1]));
 				}
 				previous = waypointObject;
 			}
@@ -362,24 +362,19 @@ public class TrackingActivity extends Application {
 			}
 		}
 		
-		public double[] getLabelRelativePosition(double targetX, double targetY) {
+		public double[] getLabelRelativePosition(Text target) {
 			switch (objectLabel.position) {
 				case RIGHT:
-					return new double[] {targetX+((graphicalIcon.getLayoutBounds().getWidth()+label.getLayoutBounds().getWidth())/1.9), targetY};
+					return new double[] {target.getX()+(objectLabel.value.length()*objectLabel.size/4.3)+(graphicalIcon.getLayoutBounds().getWidth()/2)+5, target.getY()-objectLabel.size/4};
 				case LEFT:
-					return new double [] {targetX-((graphicalIcon.getLayoutBounds().getWidth()+label.getLayoutBounds().getWidth())/1.9), targetY};
+					return new double [] {target.getX()-(objectLabel.value.length()*objectLabel.size/4.3)-(graphicalIcon.getLayoutBounds().getWidth()/2)-5, target.getY()-objectLabel.size/4};
 				case ABOVE:
-					return new double[] {targetX, targetY-((graphicalIcon.getLayoutBounds().getHeight()+label.getLayoutBounds().getHeight())/1.9)};
+					return new double[] {target.getX(), target.getY()-(objectLabel.size*2)};
 				case BELOW:
-					return new double[] {targetX, targetY+((graphicalIcon.getLayoutBounds().getHeight()+label.getLayoutBounds().getHeight())/1.9)};
+					return new double[] {target.getX(), target.getY()+(graphicalIcon.getLayoutBounds().getHeight())};
 				default:
-					return new double[] {targetX, targetY};
+					return new double[] {target.getX(), target.getY()};
 			}
-		}
-		
-		public void setLabelRelativePosition() {
-			double[] coords = getLabelRelativePosition(label.getLayoutBounds().getMinX(), label.getLayoutBounds().getMinY());
-			label.relocate(coords[0], coords[1]);
 		}
 	}
 	
