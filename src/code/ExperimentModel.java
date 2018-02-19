@@ -13,7 +13,7 @@ import javafx.scene.paint.Color;
 public class ExperimentModel {
 	
 	public static String name;
-	public static float x, y, updateRate;
+	public static float x, y, updateRate, largestFontSize;
 	public static javafx.scene.paint.Color mapColor;
 	public static File mapImage;
 	public static double duration;
@@ -36,6 +36,7 @@ public class ExperimentModel {
 		mapImage = null;
 		duration = 0;
 		clickRadius = 0;
+		largestFontSize = 0;
 		introduction = null;
 		waypoints = new HashMap<>();
 		objects = new HashMap<>();
@@ -192,5 +193,10 @@ public class ExperimentModel {
 		public double startTime, endTime;
 		public boolean wait = false;
 		public float x, y;
+	}
+	
+	public static void setLargestFontSize() {
+		waypoints.values().stream().forEach(w -> { if (w.size > largestFontSize) { largestFontSize = w.size; } });
+		objects.values().stream().forEach(o -> { if (o.size > largestFontSize) { largestFontSize = o.size; } });
 	}
 }

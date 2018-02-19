@@ -71,7 +71,7 @@ public class ConfigImportActivity extends Application {
 	
 	private void buildStartupScreen() {
 		Button importConfigBtn = new Button();
-		importConfigBtn.setText("Select Existing Configuration");
+		importConfigBtn.setText("Select Configuration");
 		importConfigBtn.setOnAction((e) -> {
 			try {
 				importConfiguration();

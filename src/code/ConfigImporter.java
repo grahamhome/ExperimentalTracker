@@ -54,26 +54,25 @@ public class ConfigImporter {
 	 * the directory provided.
 	 * @throws IOException if something goes wrong while reading the file.
 	 */
-	public static ExperimentModel run(File configDirectory) throws FileNotFoundException, IOException {
+	public static void run(File configDirectory) throws FileNotFoundException, IOException {
 		directory = configDirectory;
 		readLines();
-		return buildModel();
+		buildModel();
 	}
 	
-	private static ExperimentModel buildModel() {
+	private static void buildModel() {
 		errors = new ArrayList<>();
-		ExperimentModel model = new ExperimentModel();
 		ArrayList<Integer> lineNumberList = new ArrayList<>();
 		lineNumberList.addAll(configLines.keySet());
 		Collections.sort(lineNumberList);
 		Iterator<Integer> lineNumbers = lineNumberList.iterator();
 		
-		if (!lineNumbers.hasNext()) { report("File contains no values"); return null; }
+		if (!lineNumbers.hasNext()) { report("File contains no values"); return; }
 		if ((ExperimentModel.name = configLines.get(lineNumber = lineNumbers.next())).isEmpty()) {
 			report("Configuration name may not be empty");
 		}
 		
-		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
+		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		String[] mapValues = configLines.get(lineNumber = lineNumbers.next()).split(PRIMARY_SEPARATOR);
 		boolean valid = true;
 		if (mapValues.length != 3) { 
@@ -111,16 +110,16 @@ public class ConfigImporter {
 				}
 			}
 		}
-		if (!valid) { return null; } // Continuing with an invalid map would cause most other config lines to fail
-		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
+		if (!valid) { return; } // Continuing with an invalid map would cause most other config lines to fail
+		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		try {
 			ExperimentModel.updateRate = Float.parseFloat(configLines.get(lineNumber = lineNumbers.next()));
 		} catch (NumberFormatException e) { report("Screen refresh rate is not a number"); }
 		
-		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
+		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		ExperimentModel.duration = parseTime(configLines.get(lineNumber = lineNumbers.next()));
 		
-		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
+		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		try {
 			double clickRadius = (Double.parseDouble(configLines.get(lineNumber = lineNumbers.next())));
 			if (clickRadius <= 0 || clickRadius > 100) {
@@ -131,7 +130,7 @@ public class ConfigImporter {
 		} catch (NumberFormatException e) {
 			report("Click radius must be a number");
 		}
-		if (!lineNumbers.hasNext()) { report("No values found after this line"); return null; }
+		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		String introFileName = configLines.get(lineNumber = lineNumbers.next());
 		File introFile = new File(directory.toString() + "\\" + introFileName);
 		if (!introFile.exists() || !introFile.isFile()) {
@@ -323,6 +322,10 @@ public class ConfigImporter {
 						report("The waypoint " + waypointName + " was not specified in this configuration");
 						valid = false;
 					} else {
+						if ((mover.pathPoints.size() > 0) && (waypoint.equals(mover.pathPoints.get(mover.pathPoints.size()-1)))) {
+							report("A moving object cannot 'move' from one waypoint to the same waypoint");
+							valid = false;
+						}
 						mover.pathPoints.add(waypoint);
 					}
 				}
@@ -520,7 +523,7 @@ public class ConfigImporter {
 		if (lineNumbers.hasNext()) {
 			report("Unrecognized configuration data detected after mask and query tasks");
 		}
-		return (errors.isEmpty() ? model : null);
+		ExperimentModel.setLargestFontSize();
 	}
 	
 	/**

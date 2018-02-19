@@ -56,6 +56,7 @@ import javafx.scene.shape.LineTo;
 import javafx.scene.shape.MoveTo;
 import javafx.scene.shape.Path;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.Shape;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextBoundsType;
@@ -77,7 +78,6 @@ public class TrackingActivity extends Application {
 	private Rectangle2D bounds;
 	private double stageWidth, stageHeight, mapOffsetX, mapOffsetY, mapHeight, mapWidth;
 	private HashMap<WaypointObject, GraphicalStationaryObject> waypoints = new HashMap<>();
-	private static final int FONT_SIZE = 30; // Determines the size of the waypoints & moving objects
 	private URL iconFontURL,textFontURL;
 	private ParallelTransition masterTransition = new ParallelTransition();
 	private Rectangle introBackground;
@@ -105,6 +105,7 @@ public class TrackingActivity extends Application {
 		map.drawMap();
 		map.drawWaypoints();
 		map.drawObjects();
+		map.frame.toFront();
 		buildIntroTextScreen();
 		stage.show();
 		introBox.relocate((stageWidth-introBox.getWidth())/2, (stageHeight-introBox.getHeight())/2);
@@ -147,6 +148,7 @@ public class TrackingActivity extends Application {
 					public void run() {
 						masterTransition.stop();
 						introDisplay.setText("The experiment has ended.");
+						introButton.setText("Exit");
 						introButton.setOnMouseReleased((e2) -> {
 							try {
 								System.exit(0);
@@ -169,6 +171,8 @@ public class TrackingActivity extends Application {
 	 *
 	 */
 	private class Map {
+		
+		public Shape frame;
 		
 		private void drawMap() {
 			if (stageWidth > stageHeight) {
@@ -194,12 +198,16 @@ public class TrackingActivity extends Application {
 				map.setY(mapOffsetY);
 				root.getChildren().add(map);
 			}
+			
+			// Draw frame around map
+			frame = Rectangle.subtract(new Rectangle(stageWidth, stageHeight, Color.BLACK), new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight));
+			root.getChildren().add(frame);
 				
 			// Adjust map dimensions to allow waypoints & objects to be placed correctly
-			mapWidth -= FONT_SIZE;
-			mapHeight -= FONT_SIZE;
-			mapOffsetY += FONT_SIZE/2;
-			mapOffsetX += FONT_SIZE/2;
+			mapWidth -= ExperimentModel.largestFontSize;
+			mapHeight -= ExperimentModel.largestFontSize;
+			mapOffsetY += ExperimentModel.largestFontSize/2;
+			mapOffsetX += ExperimentModel.largestFontSize/2;
 		}
 		
 		private void drawWaypoints() {
@@ -275,24 +283,23 @@ public class TrackingActivity extends Application {
 					@Override
 					public void run() {
 						queryBox.setVisible(true);
+						if (query.acceptsText) {
+							queryField.setOnKeyPressed(e -> {
+								if (e.getCode().equals(KeyCode.ENTER)) {
+									queryBox.setVisible(false);
+								}
+							});
+						} else {
+							root.setOnMouseClicked(e -> {
+								queryBox.setVisible(false);
+							});
+						}
 						if (!query.wait) {
 							try {
 								Thread.sleep((long)(query.endTime-query.startTime));
 								queryBox.setVisible(false);
 							} catch (InterruptedException e) {
 								e.printStackTrace();
-							}
-						} else {
-							if (query.acceptsText) {
-								queryField.setOnKeyPressed(e -> {
-									if (e.getCode().equals(KeyCode.ENTER)) {
-										queryBox.setVisible(false);
-									}
-								});
-							} else {
-								root.setOnMouseClicked(e -> {
-									queryBox.setVisible(false);
-								});
 							}
 						}
 					}
