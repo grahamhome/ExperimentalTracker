@@ -538,7 +538,7 @@ public class ConfigImporter {
 				}
 				return (hours * 60 * 60 * 1000) +
 						(minutes * 60 * 1000) +
-						(minutes * 1000) +
+						(seconds * 1000) +
 						milliseconds;
 			} catch (NumberFormatException e) { 
 				report("One or more of the time values is not a number"); 

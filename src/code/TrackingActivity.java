@@ -3,15 +3,24 @@ package code;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import code.ExperimentModel.Connector;
+import code.ExperimentModel.MaskEvent;
 import code.ExperimentModel.TextObject;
 import code.ExperimentModel.MovingObjectLabel;
 import code.ExperimentModel.MovingObject;
 import code.ExperimentModel.WaypointObject;
+import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
+import javafx.animation.PauseTransition;
+import javafx.animation.SequentialTransition;
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
@@ -70,8 +79,8 @@ public class TrackingActivity extends Application {
 		map.drawMap();
 		map.drawWaypoints();
 		map.drawObjects();
+		map.scheduleMaskAppearances();
 		stage.show();
-		// TODO: Show intro message here
 		masterTransition.play();
 		// TODO: Show outro message here
 	}
@@ -124,6 +133,41 @@ public class TrackingActivity extends Application {
 			for (MovingObject object : ExperimentModel.objects.values()) {
 				new GraphicalMovingObject(object);
 			}
+		}
+		
+		public void scheduleMaskAppearances() {
+			for (MaskEvent event : ExperimentModel.maskEvents) {
+				Rectangle maskBackground = new Rectangle(stageWidth, stageHeight);
+				maskBackground.setFill(Color.BLACK);
+				Image maskImage = new Image(event.image.toURI().toString());
+				ImageView mask = new ImageView(maskImage);
+				mask.setPreserveRatio(true);
+				mask.setFitWidth(mapWidth);
+				mask.setFitHeight(mapHeight);
+				mask.setX(mapOffsetX+((mapWidth-mask.getLayoutBounds().getWidth())/2));
+				mask.setY(mapOffsetY+((mapHeight-mask.getLayoutBounds().getHeight())/2));
+				maskBackground.toFront();
+				mask.toFront();
+				maskBackground.setOpacity(0);
+				mask.setOpacity(0);
+				root.getChildren().addAll(maskBackground, mask);
+				ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+				service.schedule(new Runnable() {
+					@Override
+					public void run() {
+						maskBackground.setOpacity(1);
+						mask.setOpacity(1);
+						try {
+							Thread.sleep((long)(event.endTime-event.startTime));
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+						maskBackground.setOpacity(0);
+						mask.setOpacity(0);
+					}
+				}, (long)event.startTime, TimeUnit.MILLISECONDS);
+			}
+				
 		}
 	}
 	
@@ -223,9 +267,6 @@ public class TrackingActivity extends Application {
 			iconPathTransition.setPath(iconPath);
 			iconPathTransition.setNode(graphicalIcon);
 			iconPathTransition.setInterpolator(Interpolator.LINEAR);
-			System.out.println("Distance: " + distance);
-			System.out.println("Speed: " + object.speed);
-			System.out.println("Duration (mins): " + (distance/object.speed)*60);
 			iconPathTransition.setDuration(Duration.minutes((distance/object.speed)*60));
 			masterTransition.getChildren().add(iconPathTransition);
 			if (labelText != null) {
