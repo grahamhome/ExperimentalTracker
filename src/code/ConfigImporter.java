@@ -35,7 +35,7 @@ public class ConfigImporter {
 	private static final String LABEL_PREFIX = "LB: ";
 	private static final String MASK_PREFIX = "MK: ";
 	private static final String QUERY_PREFIX = "QR: ";
-	private static final String IMG_DIR = "\\images\\";
+	private static final String IMG_DIR = "/images/";
 	/* Valid image formats */
 	private static final List<String> VALID_IMG_TYPES = Arrays.asList(new String[] {"jpg", "jpeg", "png" });
 	
@@ -144,7 +144,7 @@ public class ConfigImporter {
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		/* Import introduction text from file */
 		String introFileName = configLines.get(lineNumber = lineNumbers.next());
-		File introFile = new File(directory.toString() + "\\" + introFileName);
+		File introFile = new File(directory.toString() + "/" + introFileName);
 		if (!introFile.exists() || !introFile.isFile()) {
 			report("Introduction message file " + introFileName + " not found in this configuration folder");
 		} else {
