@@ -22,10 +22,12 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
 /**
- * This program is designed for use in 
- * Multiple Identity Tracking experiments.
+ * This program is designed for use in Multiple Identity Tracking experiments.
+ * It creates a display of moving and stationary objects on a map, based on the contents
+ * of a configuration file provided by the experimenter. It captures the input of the subject
+ * and logs it in a result file.
  * Development begun 10/16/17.
- * @author Graham Home <grahamhome333@gmail.com>
+ * @author Graham Home <gmh5970@g.rit.edu>
  *
  */
 public class ConfigImportActivity extends Application {
@@ -33,6 +35,11 @@ public class ConfigImportActivity extends Application {
 	private Stage stage;
 	private StackPane root;
 	
+	/**
+	 * Shows a dialog which prompts the experimenter to specify the 
+	 * directory containing the experiment configuration file.
+	 * @return
+	 */
 	private File showConfigSelector() {
 		DirectoryChooser chooser = new DirectoryChooser();
 		chooser.setTitle("Select Existing Configuration");
@@ -40,6 +47,11 @@ public class ConfigImportActivity extends Application {
 		return selection;
 	}
 	
+	/**
+	 * Imports the configuration data from the specified configuration file,
+	 * and notifies the experimenter of any errors detected in the file.
+	 * @throws Exception : If something goes wrong while the file is being read.
+	 */
 	private void importConfiguration() throws Exception {
 		ExperimentModel.reset();
 		File selection = showConfigSelector();
@@ -69,6 +81,9 @@ public class ConfigImportActivity extends Application {
 		}
 	}
 	
+	/**
+	 * Creates the initial program display.
+	 */
 	private void buildStartupScreen() {
 		Button importConfigBtn = new Button();
 		importConfigBtn.setText("Select Configuration");
@@ -82,6 +97,10 @@ public class ConfigImportActivity extends Application {
 		root.getChildren().add(importConfigBtn);
 	}
 	
+	/**
+	 * Creates a display which prompts the experimenter to enter the 
+	 * number of the subject who the experiment will be conducted on.
+	 */
 	private void buildSubjectNumberScreen() {
 		root.getChildren().clear();
 		root.setPadding(new Insets(0,10,0,10));

@@ -195,6 +195,9 @@ public class ExperimentModel {
 		public float x, y;
 	}
 	
+	/**
+	 * Determines the font size of the largest icon in the experimental model.
+	 */
 	public static void setLargestFontSize() {
 		waypoints.values().stream().forEach(w -> { if (w.size > largestFontSize) { largestFontSize = w.size; } });
 		objects.values().stream().forEach(o -> { if (o.size > largestFontSize) { largestFontSize = o.size; } });

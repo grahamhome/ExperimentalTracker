@@ -24,6 +24,7 @@ import javafx.scene.paint.Color;
  */
 public class ConfigImporter {
 	
+	/* Prefixes for data lines in configuration file */
 	private static final String CONFIG_FILE_NAME = "config.csv";
 	private static final String COMMENT_INDICATOR = "#";
 	private static final String PRIMARY_SEPARATOR = ",";
@@ -35,12 +36,17 @@ public class ConfigImporter {
 	private static final String MASK_PREFIX = "MK: ";
 	private static final String QUERY_PREFIX = "QR: ";
 	private static final String IMG_DIR = "\\images\\";
+	/* Valid image formats */
 	private static final List<String> VALID_IMG_TYPES = Arrays.asList(new String[] {"jpg", "jpeg", "png" });
 	
+	/* Contents of configuration file mapped to line numbers */
 	private static HashMap<Integer, String> configLines = new HashMap<>();
+	/* Errors encountered in configuration file */
 	public static ArrayList<String> errors = new ArrayList<>();
+	/* Current line number */
 	private static int lineNumber = 0;
 	
+	/* Configuration file directory */
 	private static File directory;
 	
 	/**
@@ -68,11 +74,13 @@ public class ConfigImporter {
 		Iterator<Integer> lineNumbers = lineNumberList.iterator();
 		
 		if (!lineNumbers.hasNext()) { report("File contains no values"); return; }
+		/* Import configuration name */
 		if ((ExperimentModel.name = configLines.get(lineNumber = lineNumbers.next())).isEmpty()) {
 			report("Configuration name may not be empty");
 		}
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
+		/* Import map information */
 		String[] mapValues = configLines.get(lineNumber = lineNumbers.next()).split(PRIMARY_SEPARATOR);
 		boolean valid = true;
 		if (mapValues.length != 3) { 
@@ -112,14 +120,17 @@ public class ConfigImporter {
 		}
 		if (!valid) { return; } // Continuing with an invalid map would cause most other config lines to fail
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
+		/* Import display FPS value */
 		try {
 			ExperimentModel.updateRate = Float.parseFloat(configLines.get(lineNumber = lineNumbers.next()));
 		} catch (NumberFormatException e) { report("Screen refresh rate is not a number"); }
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
+		/* Import experiment duration value */
 		ExperimentModel.duration = parseTime(configLines.get(lineNumber = lineNumbers.next()));
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
+		/* Import click radius value */
 		try {
 			double clickRadius = (Double.parseDouble(configLines.get(lineNumber = lineNumbers.next())));
 			if (clickRadius <= 0 || clickRadius > 100) {
@@ -131,6 +142,7 @@ public class ConfigImporter {
 			report("Click radius must be a number");
 		}
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
+		/* Import introduction text from file */
 		String introFileName = configLines.get(lineNumber = lineNumbers.next());
 		File introFile = new File(directory.toString() + "\\" + introFileName);
 		if (!introFile.exists() || !introFile.isFile()) {
@@ -166,6 +178,7 @@ public class ConfigImporter {
 		if (lineNumbers.hasNext()) {
 			line = configLines.get(lineNumber = lineNumbers.next());
 		}
+		/* Import waypoints and waypoint connectors */
 		while (line.startsWith(WAYPOINT_PREFIX) || line.startsWith(CONNECTOR_PREFIX)) {
 			valid = true;
 			if (line.startsWith(WAYPOINT_PREFIX)) {
@@ -263,6 +276,7 @@ public class ConfigImporter {
 				line = "";
 			}
 		}
+		/* Import moving objects */
 		while (line.startsWith(MOVER_PREFIX)) {
 			String[] moverData = line.replace(MOVER_PREFIX, "").split(PRIMARY_SEPARATOR);
 			if (moverData.length != 8) {
@@ -349,7 +363,7 @@ public class ConfigImporter {
 				line = "";
 			}
 		}
-		
+		/* Import moving object labels */
 		while (line.startsWith(LABEL_PREFIX)) {
 			String[] labelData = line.replace(LABEL_PREFIX, "").split(PRIMARY_SEPARATOR);
 			if (labelData.length != 6) {
@@ -425,7 +439,7 @@ public class ConfigImporter {
 				line = "";
 			}
 		}
-		
+		/* Import query events and mask events */
 		while (line.startsWith(MASK_PREFIX) || line.startsWith(QUERY_PREFIX)) {
 			if (line.startsWith(MASK_PREFIX)) {
 				String[] maskData = line.replace(MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
