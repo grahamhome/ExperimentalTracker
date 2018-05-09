@@ -34,6 +34,7 @@ public class ConfigImporter {
 	private static final String MOVER_PREFIX = "MV: ";
 	private static final String LABEL_PREFIX = "LB: ";
 	private static final String MASK_PREFIX = "MK: ";
+	private static final String IDENTITY_MASK_PREFIX = "IM: ";
 	private static final String QUERY_PREFIX = "QR: ";
 	private static final String IMG_DIR = "/images/";
 	/* Valid image formats */
@@ -440,18 +441,18 @@ public class ConfigImporter {
 			}
 		}
 		/* Import query events and mask events */
-		while (line.startsWith(MASK_PREFIX) || line.startsWith(QUERY_PREFIX)) {
+		while (line.startsWith(MASK_PREFIX) || line.startsWith(IDENTITY_MASK_PREFIX) || line.startsWith(QUERY_PREFIX)) {
 			if (line.startsWith(MASK_PREFIX)) {
 				String[] maskData = line.replace(MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (maskData.length != 3) {
-					report("Mask event data must contain exactly 3 values");
+					report("Screen mask event data must contain exactly 3 values");
 				} else {
-					MaskEvent maskEvent = new MaskEvent();
+					ScreenMaskEvent maskEvent = new ScreenMaskEvent();
 					valid = true;
 					String imageName = maskData[0];
 					maskEvent.image = new File(directory.toString() + IMG_DIR + imageName);
 					if (!maskEvent.image.exists() || !maskEvent.image.isFile()) {
-						report("Mask image file " + imageName + " not found in the " + IMG_DIR + " folder of this configuration folder");
+						report("Screen mask image file " + imageName + " not found in the " + IMG_DIR + " folder of this configuration folder");
 						valid = false;
 					} else {
 						int i = imageName.lastIndexOf(".");
@@ -464,19 +465,26 @@ public class ConfigImporter {
 							valid = false;
 						}
 					}
-					maskEvent.startTime = parseTime(maskData[1]);
-					maskEvent.endTime = parseTime(maskData[2]);
-					if (maskEvent.startTime < 0 || maskEvent.endTime > ExperimentModel.duration) {
-						report("Mask appearances must start before the beginning and finish before the end of the experiment");
+					if (((maskEvent.startTime = parseTime(maskData[1])) == -1) || ((maskEvent.endTime = parseTime(maskData[2])) == -1)) {
+						valid = false;
+					} else if (maskEvent.startTime < 0 || maskEvent.endTime > ExperimentModel.duration) {
+						report("Screen mask appearances must start before the beginning and finish before the end of the experiment");
 						valid = false;
 					}
 					if (maskEvent.conflictsWithOther()) {
-						report("Mask event would conflict with another mask event which already exists");
+						report("Screen mask event would conflict with another mask event which already exists");
 						valid = false;
 					}
 					if (valid) {
-						ExperimentModel.maskEvents.add(maskEvent);
+						ExperimentModel.screenMaskEvents.add(maskEvent);
 					}
+				} 
+			} else if (line.startsWith(IDENTITY_MASK_PREFIX)) {
+				String[] maskData = line.replace(IDENTITY_MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
+				if (maskData.length > 1) {
+					report("Identity mask event data must contain exactly 1 value");
+				} else {
+					
 				}
 			} else {
 				String[] queryData = line.replace(QUERY_PREFIX, "").split(PRIMARY_SEPARATOR);

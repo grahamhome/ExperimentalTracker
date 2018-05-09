@@ -8,7 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import code.ExperimentModel.Connector;
-import code.ExperimentModel.MaskEvent;
+import code.ExperimentModel.ScreenMaskEvent;
 import code.ExperimentModel.TextObject;
 import code.ExperimentModel.MovingObjectLabel;
 import code.ExperimentModel.Query;
@@ -47,7 +47,6 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 import javafx.scene.text.TextBoundsType;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -110,7 +109,7 @@ public class TrackingActivity extends Application {
 			masterTransition.play();
 		});
 		startWindow.show();
-		/* The stage is now shown until here so that the map is not visible (even for a split-second) before the intro dialog box is shown. */
+		/* The stage is not shown until here so that the map is not visible (even for a split-second) before the intro dialog box is shown. */
 		stage.show();
 	}
 	/**
@@ -213,7 +212,7 @@ public class TrackingActivity extends Application {
 		 * Creates all mask appearances.
 		 */
 		public void scheduleMaskAppearances() {
-			for (MaskEvent mask : ExperimentModel.maskEvents) {
+			for (ScreenMaskEvent mask : ExperimentModel.screenMaskEvents) {
 				new GraphicalMaskObject(mask);
 			}
 		}
@@ -380,6 +379,22 @@ public class TrackingActivity extends Application {
 					return new double[] {target.getX(), target.getY()};
 			}
 		}
+		
+		/**
+		 * Shows or hides the object's label.
+		 * @param show : True to show the label, false to mask it.
+		 */
+		public void maskLabel(boolean show) {
+			if (label != null) {
+				if (show) {
+					label.setTextFill(Color.BLACK);
+					label.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
+				} else {
+					label.setTextFill(objectLabel.color);
+					label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
+				}
+			}
+		}
 	}
 	
 	/**
@@ -426,7 +441,7 @@ public class TrackingActivity extends Application {
 		 * schedules its appearance and disappearance.
 		 * @param event : The object representing the mask event to be depicted visually.
 		 */
-		private GraphicalMaskObject(MaskEvent event) {
+		private GraphicalMaskObject(ScreenMaskEvent event) {
 			/* Create the visual elements of the mask */
 			Rectangle maskBackground = new Rectangle(stageWidth, stageHeight);
 			maskBackground.setFill(Color.BLACK);

@@ -21,7 +21,8 @@ public class ExperimentModel {
 	public static String introduction;
 	public static HashMap<String, WaypointObject> waypoints = new HashMap<>();
 	public static HashMap<String, MovingObject> objects = new HashMap<>();
-	public static ArrayList<MaskEvent> maskEvents = new ArrayList<>();
+	public static ArrayList<ScreenMaskEvent> screenMaskEvents = new ArrayList<>();
+	public static ArrayList<IdentityMaskEvent> identityMaskEvents = new ArrayList<>();
 	public static ArrayList<Query> queries = new ArrayList<>();
 	
 	/**
@@ -40,7 +41,7 @@ public class ExperimentModel {
 		introduction = null;
 		waypoints = new HashMap<>();
 		objects = new HashMap<>();
-		maskEvents = new ArrayList<>();
+		screenMaskEvents = new ArrayList<>();
 		queries = new ArrayList<>();
 	}
 	
@@ -166,9 +167,9 @@ public class ExperimentModel {
 	}
 	
 	/**
-	 * Represents a "mask event", in which an image appears over the map at a specific time for a specific duration.
+	 * Represents a "screen mask event", in which an image appears over the map at a specific time for a specific duration.
 	 */
-	public static class MaskEvent {
+	public static class ScreenMaskEvent {
 		public File image;
 		public double startTime, endTime;
 		
@@ -176,9 +177,17 @@ public class ExperimentModel {
 		 * Determines if one MaskEvent conflicts (overlaps) with any other by comparing their start and end times.
 		 */
 		public boolean conflictsWithOther() {
-			return maskEvents.stream().anyMatch(e -> ((startTime < e.startTime) && (endTime > e.startTime)) ||
+			return screenMaskEvents.stream().anyMatch(e -> ((startTime < e.startTime) && (endTime > e.startTime)) ||
 					((startTime > e.endTime) && (endTime < e.startTime)));
 		}
+	}
+	
+	/**
+	 * Represents an "identity mask event", in which the labels of the moving objects are blacked out
+	 * until they detect a mouse-over event.
+	 */
+	public static class IdentityMaskEvent {
+		public double startTime;
 	}
 	
 	/**
