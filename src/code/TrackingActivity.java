@@ -74,6 +74,9 @@ public class TrackingActivity extends Application {
 	private URL iconFontURL = TrackingActivity.class.getResource("/Font-Awesome-5-Free-Solid-900.otf");
 	private URL textFontURL = TrackingActivity.class.getResource("/segoeui.ttf");
 	private ParallelTransition masterTransition = new ParallelTransition();
+	private GraphicalQueryObject activeQuery;
+	private HashMap<Query, GraphicalQueryObject> queries = new HashMap<>();
+	
 
 	/**
 	 * Calls methods to create all elements of the object tracking display.
@@ -530,6 +533,7 @@ public class TrackingActivity extends Application {
 							((query.y*(mapHeight/ExperimentModel.y))+mapOffsetY)-(query.acceptsText ? 20 : 10));
 				}
 			});
+			queries.put(query, this);
 			/* Create delayed task to add query elements to view at specified time */
 			ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
 			service.schedule(new Runnable() {
@@ -537,18 +541,21 @@ public class TrackingActivity extends Application {
 				/* Adds query elements to screen */
 				@Override
 				public void run() {
-					// TODO: remove current query if any
 					Platform.runLater(new Runnable() {
 						@Override
 						public void run() {
+							if (activeQuery != null) {
+								activeQuery.remove();
+							}
 							root.getChildren().add(queryBox);
+							activeQuery = queries.get(query);
 						}
 					});
 					/* Allow 'text entry' query to be closed by pressing the 'enter' button */
-					// TODO: save text with query
 					if (query.acceptsText) {
 						queryField.setOnKeyPressed(e -> {
 							if (e.getCode().equals(KeyCode.ENTER)) {
+								query.responseText = queryField.getText();
 								Platform.runLater(removeQuery);
 								service.shutdownNow();
 							}
@@ -599,11 +606,19 @@ public class TrackingActivity extends Application {
 				Runnable removeQuery = new Runnable() {
 					@Override
 					public void run() {
-						root.getChildren().remove(queryBox);
+						remove();
 					}
 				};
 			/* Set delay before query appears */
 			}, (long)query.startTime, TimeUnit.MILLISECONDS);
+		}
+		
+		/**
+		 * Removes the query
+		 */
+		public void remove() {
+			root.getChildren().remove(queryBox);
+			activeQuery = null;
 		}
 		
 		/**

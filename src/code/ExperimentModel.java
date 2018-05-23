@@ -203,6 +203,7 @@ public class ExperimentModel {
 		public boolean wait = false;
 		public float x, y;
 		public Click responseClick;
+		public String responseText;
 		
 		/**
 		 * Determines if one Query conflicts (overlaps) with any other by comparing their start and end times.
