@@ -147,6 +147,8 @@ public class TrackingActivity extends Application {
 	 */
 	private class Map {
 		
+		private Rectangle mapShape;
+		
 		/* A visual element which surrounds the map image or shape to hide any object positioned outside the map itself. */
 		public Shape frame;
 		
@@ -168,10 +170,10 @@ public class TrackingActivity extends Application {
 				mapOffsetY = (stageHeight-mapHeight)/2;
 			}
 			/* Fill map with specified color (if any) */
+			mapShape = new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight);
 			if (ExperimentModel.mapColor != null) {
-				Rectangle map = new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight);
-				map.setFill(ExperimentModel.mapColor);
-				root.getChildren().add(map);
+				mapShape.setFill(ExperimentModel.mapColor);
+				root.getChildren().add(mapShape);
 			} else {
 				/* Fill map with specified image, preserving image ratio */
 				Image mapImage = new Image(ExperimentModel.mapImage.toURI().toString());
@@ -311,6 +313,7 @@ public class TrackingActivity extends Application {
 				root.getChildren().add(label);
 			}
 			generatePaths();
+			objects.put(object, this);
 		}
 		
 		/**
@@ -538,26 +541,32 @@ public class TrackingActivity extends Application {
 					} else {
 						/* Allow 'click object' query to be closed by clicking the screen */
 						root.setOnMouseClicked(e -> {
-							// TODO: Ensure click is within map boundaries
-							query.responseClick = new Click((float)e.getSceneX(), (float)e.getSceneY());
-							Circle selectedArea = new Circle(e.getSceneX(), e.getSceneY(), Math.sqrt((((ExperimentModel.clickRadius/100)*mapHeight*mapWidth))/Math.PI));
-							// Check waypoints
-							for (Entry<WaypointObject, GraphicalStationaryObject> waypointEntry : waypoints.entrySet()) {
-								if (selectedArea.contains(new Point2D(waypointEntry.getValue().x, waypointEntry.getValue().y))) {
-									query.responseClick.nearbyObjects.add(waypointEntry.getKey());
+							// Ensure click is within map boundaries
+							if (map.mapShape.contains(new Point2D(e.getX(), e.getY()))) {
+								System.out.println("Clicked: " + (float)e.getSceneX() + ", " + (float)e.getSceneY());
+								query.responseClick = new Click((float)e.getSceneX(), (float)e.getSceneY());
+								Circle selectedArea = new Circle(e.getX(), e.getY(), Math.sqrt((((ExperimentModel.clickRadius/100)*mapHeight*mapWidth))/Math.PI));
+								// Check waypoints
+								for (Entry<WaypointObject, GraphicalStationaryObject> waypointEntry : waypoints.entrySet()) {
+									if (selectedArea.contains(new Point2D(waypointEntry.getValue().x, waypointEntry.getValue().y))) {
+										query.responseClick.nearbyObjects.add(waypointEntry.getKey());
+									}
+								} // Check moving objects
+								for (Entry<MovingObject, GraphicalMovingObject> objectEntry : objects.entrySet()) {
+									Text objectIcon = objectEntry.getValue().graphicalIcon;
+									double x = objectIcon.getX() + objectIcon.getTranslateX();
+									double y  = objectIcon.getY() + objectIcon.getTranslateY();
+									System.out.println((objectEntry.getValue().label != null ? objectEntry.getValue().label.getText() + " ": "Unlabelled ") + (x) + ", " + (y));
+									if (selectedArea.contains(new Point2D(objectIcon.getX() + objectIcon.getTranslateX(), objectIcon.getY() + objectIcon.getTranslateY()))) { 
+										query.responseClick.nearbyObjects.add(objectEntry.getKey());
+										System.out.println("Hit: " + (objectEntry.getValue().label != null ? objectEntry.getValue().label.getText() : "Unlabelled"));
+									}
 								}
-							} // Check moving objects
-							for (Entry<MovingObject, GraphicalMovingObject> objectEntry : objects.entrySet()) {
-								Text objectIcon = objectEntry.getValue().graphicalIcon;
-								if (selectedArea.contains(new Point2D(objectIcon.getLayoutX()+objectIcon.getTranslateX(), objectIcon.getLayoutY()+objectIcon.getTranslateY()))) { 
-									query.responseClick.nearbyObjects.add(objectEntry.getKey());
-									System.out.println(objectEntry.getValue().label.getText());
-								}
+								System.out.println("---");
+								Platform.runLater(removeQuery);
+								root.setOnMouseClicked(null);
+								service.shutdownNow();
 							}
-							System.out.println("---");
-							Platform.runLater(removeQuery);
-							root.setOnMouseClicked(null);
-							service.shutdownNow();
 						});
 					}
 					if (!query.wait) {
