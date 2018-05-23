@@ -511,6 +511,10 @@ public class ConfigImporter {
 							}
 						}
 					}
+					if (valid && query.conflictsWithOther()) {
+						report("Query event would conflict with another query event which already exists");
+						valid = false;
+					}
 					try {
 						if ((query.x = Float.parseFloat(queryData[3])) > ExperimentModel.x ||
 								(query.y = Float.parseFloat(queryData[4])) > ExperimentModel.y) {
