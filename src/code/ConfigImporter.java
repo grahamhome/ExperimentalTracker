@@ -488,8 +488,8 @@ public class ConfigImporter {
 				}
 			} else {
 				String[] queryData = line.replace(QUERY_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (queryData.length != 6) {
-					report("Query event data must contain exactly 6 values");
+				if (queryData.length != 7) {
+					report("Query event data must contain exactly 7 values");
 				} else {
 					valid = true;
 					Query query = new Query();
@@ -534,7 +534,13 @@ public class ConfigImporter {
 						report("Query position values must be numeric values");
 						valid = false;
 					}
-					query.text = queryData[5];
+					if (!queryData[5].equals("y") && !queryData[5].equals("n")) {
+						report("Query mask setting must be 'y' or 'n'");
+						valid = false;
+					} else {
+						query.mask = queryData[5].equals("y");
+					}
+					query.text = queryData[6];
 					if (valid) {
 						ExperimentModel.queries.add(query);
 					}

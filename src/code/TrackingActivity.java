@@ -21,6 +21,7 @@ import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
@@ -76,6 +77,7 @@ public class TrackingActivity extends Application {
 	private ParallelTransition masterTransition = new ParallelTransition();
 	private GraphicalQueryObject activeQuery;
 	private HashMap<Query, GraphicalQueryObject> queries = new HashMap<>();
+	private double experimentStartTime;
 	
 
 	/**
@@ -115,6 +117,7 @@ public class TrackingActivity extends Application {
 			map.scheduleQueryAppearances();
 			scheduleExperimentEnd();
 			masterTransition.play();
+			experimentStartTime = System.currentTimeMillis();
 		});
 		startWindow.show();
 		/* The stage is not shown until here so that the map is not visible (even for a split-second) before the intro dialog box is shown. */
@@ -400,9 +403,22 @@ public class TrackingActivity extends Application {
 				if (show) {
 					label.setTextFill(Color.BLACK);
 					label.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
+					EventHandler<MouseEvent> listener = new EventHandler<MouseEvent>() {
+
+						@Override
+						public void handle(MouseEvent event) {
+							maskLabel(false);
+							activeQuery.query.mousedOverMovingObjects.put(object, activeQuery.query.startTime-(System.currentTimeMillis()-experimentStartTime));
+						}
+						
+					};
+					label.setOnMouseMoved(listener);
+					graphicalIcon.setOnMouseMoved(listener);
 				} else {
 					label.setTextFill(objectLabel.color);
 					label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
+					label.setOnMouseMoved(null);
+					graphicalIcon.setOnMouseMoved(null);
 				}
 			}
 		}
@@ -501,6 +517,7 @@ public class TrackingActivity extends Application {
 	private class GraphicalQueryObject {
 		
 		private VBox queryBox;
+		private Query query;
 		
 		/**
 		 * Constructs a graphical representation of a given Query object and
@@ -533,6 +550,7 @@ public class TrackingActivity extends Application {
 							((query.y*(mapHeight/ExperimentModel.y))+mapOffsetY)-(query.acceptsText ? 20 : 10));
 				}
 			});
+			this.query = query;
 			queries.put(query, this);
 			/* Create delayed task to add query elements to view at specified time */
 			ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
@@ -551,11 +569,17 @@ public class TrackingActivity extends Application {
 							activeQuery = queries.get(query);
 						}
 					});
+					// Mask identities if needed
+					if (query.mask) {
+						for (GraphicalMovingObject object : objects.values()) {
+							object.maskLabel(true);
+						}
+					}
 					/* Allow 'text entry' query to be closed by pressing the 'enter' button */
 					if (query.acceptsText) {
 						queryField.setOnKeyPressed(e -> {
 							if (e.getCode().equals(KeyCode.ENTER)) {
-								query.responseText = queryField.getText();
+								query.responseText = query.new TextEntry(queryField.getText(), query.startTime-(experimentStartTime-System.currentTimeMillis()));
 								Platform.runLater(removeQuery);
 								service.shutdownNow();
 							}
@@ -566,7 +590,7 @@ public class TrackingActivity extends Application {
 							// Ensure click is within map boundaries
 							if (map.mapShape.contains(new Point2D(e.getX(), e.getY()))) {
 								System.out.println("Clicked: " + (float)e.getSceneX() + ", " + (float)e.getSceneY());
-								query.responseClick = new Click((float)e.getSceneX(), (float)e.getSceneY());
+								query.responseClick = query.new Click((float)e.getSceneX(), (float)e.getSceneY(), System.currentTimeMillis()-experimentStartTime);
 								Circle selectedArea = new Circle(e.getX(), e.getY(), Math.sqrt((((ExperimentModel.clickRadius/100)*mapHeight*mapWidth))/Math.PI));
 								// Check waypoints
 								for (Entry<WaypointObject, GraphicalStationaryObject> waypointEntry : waypoints.entrySet()) {
@@ -619,6 +643,11 @@ public class TrackingActivity extends Application {
 		public void remove() {
 			root.getChildren().remove(queryBox);
 			activeQuery = null;
+			if (query.mask) {
+				for (GraphicalMovingObject object : objects.values()) {
+					object.maskLabel(false);
+				}
+			}
 		}
 		
 		/**

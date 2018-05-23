@@ -203,7 +203,10 @@ public class ExperimentModel {
 		public boolean wait = false;
 		public float x, y;
 		public Click responseClick;
-		public String responseText;
+		public TextEntry responseText;
+		public HashMap<MovingObject, Double> mousedOverMovingObjects = new HashMap<>();
+		public boolean mask = false;
+		public boolean displayed = false;
 		
 		/**
 		 * Determines if one Query conflicts (overlaps) with any other by comparing their start and end times.
@@ -217,16 +220,32 @@ public class ExperimentModel {
 		/**
 		 * Represents a click performed in response to a query.
 		 */
-		public static class Click {
+		public class Click {
+			public double time;
 			public float x, y;
 			public ArrayList<TextObject> nearbyObjects;
 			
-			public Click(float x, float y) {
+			public Click(float x, float y, double time) {
 				this.x = x;
 				this.y = y;
+				this.time = time - startTime;
 				nearbyObjects = new ArrayList<>();
 			}
 		}
+		
+		/**
+		 * Represents a text entry given in response to a query.
+		 */
+		public class TextEntry {
+			public double time;
+			public String value;
+			
+			public TextEntry(String value, double time) {
+				this.value = value;
+				this.time = time;
+			}
+		}
+		
 	}
 	
 	
