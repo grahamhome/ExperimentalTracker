@@ -3,6 +3,7 @@ package code;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -12,6 +13,7 @@ import code.ExperimentModel.ScreenMaskEvent;
 import code.ExperimentModel.TextObject;
 import code.ExperimentModel.MovingObjectLabel;
 import code.ExperimentModel.Query;
+import code.ExperimentModel.Query.Click;
 import code.ExperimentModel.MovingObject;
 import code.ExperimentModel.WaypointObject;
 import javafx.animation.Interpolator;
@@ -21,6 +23,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
@@ -39,6 +42,7 @@ import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.LineTo;
 import javafx.scene.shape.MoveTo;
@@ -66,6 +70,7 @@ public class TrackingActivity extends Application {
 	private Rectangle2D bounds;
 	private double stageWidth, stageHeight, mapOffsetX, mapOffsetY, mapHeight, mapWidth;
 	private HashMap<WaypointObject, GraphicalStationaryObject> waypoints = new HashMap<>();
+	private HashMap<MovingObject, GraphicalMovingObject> objects = new HashMap<>();
 	private URL iconFontURL = TrackingActivity.class.getResource("/Font-Awesome-5-Free-Solid-900.otf");
 	private URL textFontURL = TrackingActivity.class.getResource("/segoeui.ttf");
 	private ParallelTransition masterTransition = new ParallelTransition();
@@ -141,6 +146,8 @@ public class TrackingActivity extends Application {
 	 */
 	private class Map {
 		
+		private Rectangle mapShape;
+		
 		/* A visual element which surrounds the map image or shape to hide any object positioned outside the map itself. */
 		public Shape frame;
 		
@@ -162,10 +169,10 @@ public class TrackingActivity extends Application {
 				mapOffsetY = (stageHeight-mapHeight)/2;
 			}
 			/* Fill map with specified color (if any) */
+			mapShape = new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight);
 			if (ExperimentModel.mapColor != null) {
-				Rectangle map = new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight);
-				map.setFill(ExperimentModel.mapColor);
-				root.getChildren().add(map);
+				mapShape.setFill(ExperimentModel.mapColor);
+				root.getChildren().add(mapShape);
 			} else {
 				/* Fill map with specified image, preserving image ratio */
 				Image mapImage = new Image(ExperimentModel.mapImage.toURI().toString());
@@ -305,6 +312,7 @@ public class TrackingActivity extends Application {
 				root.getChildren().add(label);
 			}
 			generatePaths();
+			objects.put(object, this);
 		}
 		
 		/**
@@ -518,7 +526,6 @@ public class TrackingActivity extends Application {
 			Platform.runLater(new Runnable() {
 				@Override
 				public void run() {
-					// TODO Auto-generated method stub
 					queryBox.relocate(((query.x*(mapWidth/ExperimentModel.x))+mapOffsetX)-(queryBox.getWidth()/2), 
 							((query.y*(mapHeight/ExperimentModel.y))+mapOffsetY)-(query.acceptsText ? 20 : 10));
 				}
@@ -530,6 +537,7 @@ public class TrackingActivity extends Application {
 				/* Adds query elements to screen */
 				@Override
 				public void run() {
+					// TODO: remove current query if any
 					Platform.runLater(new Runnable() {
 						@Override
 						public void run() {
@@ -537,6 +545,7 @@ public class TrackingActivity extends Application {
 						}
 					});
 					/* Allow 'text entry' query to be closed by pressing the 'enter' button */
+					// TODO: save text with query
 					if (query.acceptsText) {
 						queryField.setOnKeyPressed(e -> {
 							if (e.getCode().equals(KeyCode.ENTER)) {
@@ -547,8 +556,32 @@ public class TrackingActivity extends Application {
 					} else {
 						/* Allow 'click object' query to be closed by clicking the screen */
 						root.setOnMouseClicked(e -> {
-							Platform.runLater(removeQuery);
-							service.shutdownNow();
+							// Ensure click is within map boundaries
+							if (map.mapShape.contains(new Point2D(e.getX(), e.getY()))) {
+								System.out.println("Clicked: " + (float)e.getSceneX() + ", " + (float)e.getSceneY());
+								query.responseClick = new Click((float)e.getSceneX(), (float)e.getSceneY());
+								Circle selectedArea = new Circle(e.getX(), e.getY(), Math.sqrt((((ExperimentModel.clickRadius/100)*mapHeight*mapWidth))/Math.PI));
+								// Check waypoints
+								for (Entry<WaypointObject, GraphicalStationaryObject> waypointEntry : waypoints.entrySet()) {
+									if (selectedArea.contains(new Point2D(waypointEntry.getValue().x, waypointEntry.getValue().y))) {
+										query.responseClick.nearbyObjects.add(waypointEntry.getKey());
+									}
+								} // Check moving objects
+								for (Entry<MovingObject, GraphicalMovingObject> objectEntry : objects.entrySet()) {
+									Text objectIcon = objectEntry.getValue().graphicalIcon;
+									double x = objectIcon.getX() + objectIcon.getTranslateX();
+									double y  = objectIcon.getY() + objectIcon.getTranslateY();
+									System.out.println((objectEntry.getValue().label != null ? objectEntry.getValue().label.getText() + " ": "Unlabelled ") + (x) + ", " + (y));
+									if (selectedArea.contains(new Point2D(objectIcon.getX() + objectIcon.getTranslateX(), objectIcon.getY() + objectIcon.getTranslateY()))) { 
+										query.responseClick.nearbyObjects.add(objectEntry.getKey());
+										System.out.println("Hit: " + (objectEntry.getValue().label != null ? objectEntry.getValue().label.getText() : "Unlabelled"));
+									}
+								}
+								System.out.println("---");
+								Platform.runLater(removeQuery);
+								root.setOnMouseClicked(null);
+								service.shutdownNow();
+							}
 						});
 					}
 					if (!query.wait) {
@@ -556,6 +589,7 @@ public class TrackingActivity extends Application {
 						try {
 							Thread.sleep((long)(query.endTime-query.startTime));
 							Platform.runLater(removeQuery);
+							root.setOnMouseClicked(null);
 							service.shutdownNow();
 						} catch (InterruptedException e) { /* This is expected when the service is terminated early via shutdownNow() */ }
 					}

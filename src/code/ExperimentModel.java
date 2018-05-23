@@ -202,7 +202,33 @@ public class ExperimentModel {
 		public double startTime, endTime;
 		public boolean wait = false;
 		public float x, y;
+		public Click responseClick;
+		
+		/**
+		 * Determines if one Query conflicts (overlaps) with any other by comparing their start and end times.
+		 */
+		public boolean conflictsWithOther() {
+			return queries.stream().anyMatch(e -> 
+					((!e.wait) && ((startTime < e.startTime) && (endTime > e.startTime))) ||
+					((!wait) && ((startTime > e.endTime) && (endTime < e.startTime))));
+		}
+		
+		/**
+		 * Represents a click performed in response to a query.
+		 */
+		public static class Click {
+			public float x, y;
+			public ArrayList<TextObject> nearbyObjects;
+			
+			public Click(float x, float y) {
+				this.x = x;
+				this.y = y;
+				nearbyObjects = new ArrayList<>();
+			}
+		}
 	}
+	
+	
 	
 	/**
 	 * Determines the font size of the largest icon in the experimental model.
