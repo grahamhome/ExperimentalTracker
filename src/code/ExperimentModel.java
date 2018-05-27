@@ -1,6 +1,13 @@
 package code;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -13,6 +20,7 @@ import javafx.scene.paint.Color;
 public class ExperimentModel {
 	
 	public static String name;
+	private static String participantId;
 	public static float x, y, updateRate, largestFontSize;
 	public static javafx.scene.paint.Color mapColor;
 	public static File mapImage;
@@ -24,6 +32,24 @@ public class ExperimentModel {
 	public static ArrayList<ScreenMaskEvent> screenMaskEvents = new ArrayList<>();
 	public static ArrayList<IdentityMaskEvent> identityMaskEvents = new ArrayList<>();
 	public static ArrayList<Query> queries = new ArrayList<>();
+	private static StringBuilder report = new StringBuilder();
+	private static long startTime = System.currentTimeMillis();
+	private static String lastClickTime = "";
+	private static String reportFileName;
+	static {
+		Calendar cal = Calendar.getInstance();
+		reportFileName = new StringBuilder()
+				.append(cal.get(Calendar.MONTH)+1)
+				.append("-")
+				.append(cal.get(Calendar.DAY_OF_MONTH))
+				.append("-")
+				.append(cal.get(Calendar.YEAR))
+				.append("-")
+				.append(name)
+				.append("-")
+				.append(participantId)
+				.append(".csv").toString();
+	}
 	
 	/**
 	 * Resets the configuration to its initial state.
@@ -44,6 +70,144 @@ public class ExperimentModel {
 		screenMaskEvents = new ArrayList<>();
 		queries = new ArrayList<>();
 	}
+	
+	/**
+	 * Add the elapsed time to the current line of the experiment report.
+	 */
+	private static String reportTime() {
+		long elapsedMillis = System.currentTimeMillis()-startTime;
+		long hours = elapsedMillis/3600000;
+		long remainder = elapsedMillis%3600000;
+		long minutes = remainder/60000;
+		remainder = remainder%6000;
+		long seconds = remainder/1000;
+		long millis = Math.round((double)remainder%1000);
+		
+		StringBuilder time = new StringBuilder();
+		for (long value : Arrays.asList(hours, minutes, seconds)) {
+			time.append(value > 0 ? value : "00");
+			time.append(":");
+		}
+		time.append(millis > 0 ? millis : "000");
+		time.append(",");
+		report.append(time.toString());
+		return time.toString();
+	}
+	
+	/**
+	 * Add the appearance or disappearance of a screen mask to the experiment report.
+	 * @param mask : The ScreenMaskEvent to report.
+	 * @param start : True to log the mask appearance, false to log the mask disappearance.
+	 */
+	public static void reportMask(ScreenMaskEvent mask, boolean show) {
+		reportTime();
+		report.append("Mask Event");
+		report.append(",");
+		report.append(show ? "Appearance" : "Disappearance");
+		report.append(",");
+		report.append(mask.image.getName());
+		report.append(System.lineSeparator());
+	}
+	
+	/**
+	 * Add the appearance or disappearance of a query to the experiment report.
+	 * @param query : The QueryEvent to report.
+	 * @param show : True to log the query appearance, false to log the query disappearance.
+	 */
+	public static void reportQuery(Query query, boolean show) {
+		String queryTime = reportTime();
+		report.append(query.acceptsText ? "Text Query " : "Click Query ");
+		report.append(show ? "Appearance" : "Disappearance");
+		report.append(",");
+		report.append(query.text.replaceAll(",", ""));
+		report.append(System.lineSeparator());
+		if (query.mask) {
+			report.append(queryTime);
+			report.append("Identity Mask Event");
+			report.append(",");
+			report.append(show ? "Appearance" : "Disappearance");
+			report.append(System.lineSeparator());
+		}
+	}
+	
+	/**
+	 * Add a text entry to the experiment report.
+	 * @param value : The text entered by the user.
+	 */
+	public static void reportTextEntry(String value) {
+		reportTime();
+		report.append("Text Entry");
+		report.append(",");
+		report.append(value.replaceAll(",", ""));
+		report.append(System.lineSeparator());
+	}
+	
+	/**
+	 * Add a click event to the experiment report.
+	 * @param click : The Click to report.
+	 */
+	public static void reportClick(Query.Click click) {
+		lastClickTime = reportTime();
+		report.append("Click");
+		report.append(",");
+		report.append(click.x);
+		report.append(",");
+		report.append(click.y);
+		report.append(System.lineSeparator());
+	}
+	
+	/**
+	 * Add an Object Hit event to the experiment report.
+	 * @param label : The text of the object's label.
+	 * @param distance : The distance to the object from the click location.
+	 */
+	public static void reportObjectHit(String label, float distance) {
+		report.append(lastClickTime);
+		report.append("Object Hit");
+		report.append(",");
+		report.append(label);
+		report.append(",");
+		report.append(distance);
+		report.append(System.lineSeparator());
+	}
+	
+	/**
+	 * Add an Identity Viewed event to the experiment report.
+	 * @param label : The text of the object's label.
+	 */
+	public static void reportIdentityViewed(String label) {
+		reportTime();
+		report.append("Object Identity Viewed");
+		report.append(",");
+		report.append(label);
+		report.append(System.lineSeparator());
+	}
+	
+	/**
+	 * Writes the report to the report file.
+	 */
+	public static void writeReport() {
+		String commonHeader = "Time (all events), Event Type (all events)" + System.lineSeparator();
+		String maskHeader = ",,Appearance/Disappearance (mask events),Mask Image Name (mask events)" + System.lineSeparator();
+		String queryHeader = ",,Appearance/Disappearance (query events),Query Text (query events)" + System.lineSeparator();
+		String identityMaskHeader = ",,Appearance/Disappearance (identity mask events)" + System.lineSeparator();
+		String textEntryHeader = ",,Text Entered (text entry events)" + System.lineSeparator();
+		String clickHeader = ",,X Value in Nautical Miles (click events),Y value in Nautical Miles (click events)" + System.lineSeparator();
+		String hitHeader =",,Label of Hit Object (object hit events),Distance to Object Center in Nautical Miles (object hit events)" + System.lineSeparator();
+		String identityViewedEvent = ",,Label of Object Viewed (identity viewed events)" + System.lineSeparator();
+		try {
+			PrintWriter reportWriter = new PrintWriter(reportFileName, "UTF-8");
+			for (String header : Arrays.asList(commonHeader, maskHeader, queryHeader, identityMaskHeader, textEntryHeader, clickHeader, hitHeader, identityViewedEvent)) {
+				reportWriter.write(header);
+			}
+			reportWriter.write(report.toString());
+			reportWriter.close();
+		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
 	
 	/**
 	 * Contains attributes common to all objects depicted as text or icons.
@@ -206,7 +370,6 @@ public class ExperimentModel {
 		public TextEntry responseText;
 		public HashMap<MovingObject, Double> mousedOverMovingObjects = new HashMap<>();
 		public boolean mask = false;
-		public boolean displayed = false;
 		
 		/**
 		 * Determines if one Query conflicts (overlaps) with any other by comparing their start and end times.

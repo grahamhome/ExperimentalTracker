@@ -136,6 +136,7 @@ public class TrackingActivity extends Application {
 				GraphicalDialogWindow endWindow = new GraphicalDialogWindow("The experiment has ended.", "Exit");
 				endWindow.setAction((e2) -> {
 					try {
+						ExperimentModel.writeReport();
 						System.exit(0);
 					} catch (Exception e1) {
 						e1.printStackTrace();
@@ -419,6 +420,7 @@ public class TrackingActivity extends Application {
 					label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
 					label.setOnMouseMoved(null);
 					graphicalIcon.setOnMouseMoved(null);
+					ExperimentModel.reportIdentityViewed(objectLabel.value);
 				}
 			}
 		}
@@ -462,6 +464,7 @@ public class TrackingActivity extends Application {
 	 */
 	private class GraphicalMaskObject {
 		private ImageView mask;
+		private ScreenMaskEvent maskEvent;
 		
 		/**
 		 * Constructs a graphical representation of a mask event and
@@ -469,6 +472,7 @@ public class TrackingActivity extends Application {
 		 * @param event : The object representing the mask event to be depicted visually.
 		 */
 		private GraphicalMaskObject(ScreenMaskEvent event) {
+			maskEvent = event;
 			/* Create the visual elements of the mask */
 			Rectangle maskBackground = new Rectangle(stageWidth, stageHeight);
 			maskBackground.setFill(Color.BLACK);
@@ -490,6 +494,7 @@ public class TrackingActivity extends Application {
 						public void run() {
 							root.getChildren().addAll(maskBackground, mask);
 							map.queries.stream().forEach(q -> q.bringToFront());
+							ExperimentModel.reportMask(event, true);
 						}
 					});
 					/* Remove mask elements after specified delay */
@@ -499,6 +504,7 @@ public class TrackingActivity extends Application {
 							@Override
 							public void run() {
 								root.getChildren().removeAll(maskBackground, mask);
+								ExperimentModel.reportMask(event, false);
 							}
 						});
 					} catch (InterruptedException e) {
@@ -567,6 +573,7 @@ public class TrackingActivity extends Application {
 							}
 							root.getChildren().add(queryBox);
 							activeQuery = queries.get(query);
+							ExperimentModel.reportQuery(query, true);
 						}
 					});
 					// Mask identities if needed
@@ -580,6 +587,7 @@ public class TrackingActivity extends Application {
 						queryField.setOnKeyPressed(e -> {
 							if (e.getCode().equals(KeyCode.ENTER)) {
 								query.responseText = query.new TextEntry(queryField.getText(), query.startTime-(experimentStartTime-System.currentTimeMillis()));
+								ExperimentModel.reportTextEntry(query.responseText.value);
 								Platform.runLater(removeQuery);
 								service.shutdownNow();
 							}
@@ -611,6 +619,10 @@ public class TrackingActivity extends Application {
 								System.out.println("---");
 								Platform.runLater(removeQuery);
 								root.setOnMouseClicked(null);
+								ExperimentModel.reportClick(query.responseClick);
+								for (TextObject hitObject: query.responseClick.nearbyObjects) {
+									ExperimentModel.reportObjectHit((objects.get(hitObject).label != null ? objects.get(hitObject).label.getText() : "No label"), 0); //TODO: Fix this after refactor
+								}
 								service.shutdownNow();
 							}
 						});
@@ -642,12 +654,13 @@ public class TrackingActivity extends Application {
 		 */
 		public void remove() {
 			root.getChildren().remove(queryBox);
-			activeQuery = null;
 			if (query.mask) {
 				for (GraphicalMovingObject object : objects.values()) {
 					object.maskLabel(false);
 				}
 			}
+			activeQuery = null;
+			ExperimentModel.reportQuery(query, false);
 		}
 		
 		/**
