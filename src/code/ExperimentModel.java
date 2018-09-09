@@ -235,7 +235,7 @@ public class ExperimentModel {
 				return false;
 			} else {
 				WaypointObject waypoint = (WaypointObject) waypointToCompare;
-				return ((x == waypoint.x && y == waypoint.y) || (x == y && (x == waypoint.y || y == waypoint.x)));
+				return ((x == waypoint.x && y == waypoint.y));
 			}
 		}
 		
