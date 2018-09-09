@@ -142,10 +142,17 @@ public class ConfigImportActivity extends Application {
 		buildStartupScreen();
 		stage.setScene(new Scene(root, 300, 250));
 		stage.setOnCloseRequest((event) -> {
-			ExperimentModel.writeReport();
-			System.exit(0);
+			exit();
 		});
 		stage.show();
+	}
+	
+	/**
+	 * Writes the report and closes the experiment
+	 */
+	public static void exit() {
+		ExperimentModel.writeReport();
+		System.exit(0);
 	}
 
 	/**

@@ -136,7 +136,7 @@ public class TrackingActivity extends Application {
 				GraphicalDialogWindow endWindow = new GraphicalDialogWindow("The experiment has ended.", "Exit");
 				endWindow.setAction((e2) -> {
 					try {
-						stage.close();
+						ConfigImportActivity.exit();
 					} catch (Exception e1) {
 						e1.printStackTrace();
 					}
@@ -409,6 +409,7 @@ public class TrackingActivity extends Application {
 						public void handle(MouseEvent event) {
 							maskLabel(false);
 							activeQuery.query.mousedOverMovingObjects.put(object, activeQuery.query.startTime-(System.currentTimeMillis()-experimentStartTime));
+							ExperimentModel.reportIdentityViewed(objectLabel.value);
 						}
 						
 					};
@@ -419,7 +420,6 @@ public class TrackingActivity extends Application {
 					label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
 					label.setOnMouseMoved(null);
 					graphicalIcon.setOnMouseMoved(null);
-					ExperimentModel.reportIdentityViewed(objectLabel.value);
 				}
 			}
 		}
@@ -620,7 +620,10 @@ public class TrackingActivity extends Application {
 								root.setOnMouseClicked(null);
 								ExperimentModel.reportClick(query.responseClick);
 								for (TextObject hitObject: query.responseClick.nearbyObjects) {
-									ExperimentModel.reportObjectHit((objects.get(hitObject).label != null ? objects.get(hitObject).label.getText() : "No label"), 0); //TODO: Fix this after refactor
+									GraphicalMovingObject movingObj = objects.get(hitObject);
+									if (movingObj != null) {
+										ExperimentModel.reportObjectHit((movingObj.label != null ? movingObj.label.getText() : "No label"), 0);
+									}
 								}
 								service.shutdownNow();
 							}
