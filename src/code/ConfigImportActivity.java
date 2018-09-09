@@ -122,6 +122,7 @@ public class ConfigImportActivity extends Application {
 		enterButton.setMinWidth(Region.USE_PREF_SIZE);
 		enterButton.setOnMouseReleased((e) -> {
 			try {
+				ExperimentModel.participantId = numberField.getText();
 				new TrackingActivity().start(stage);
 			} catch (Exception ex) {
 				ex.printStackTrace();
@@ -140,6 +141,10 @@ public class ConfigImportActivity extends Application {
 		root = new StackPane();
 		buildStartupScreen();
 		stage.setScene(new Scene(root, 300, 250));
+		stage.setOnCloseRequest((event) -> {
+			ExperimentModel.writeReport();
+			System.exit(0);
+		});
 		stage.show();
 	}
 

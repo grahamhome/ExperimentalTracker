@@ -20,7 +20,7 @@ import javafx.scene.paint.Color;
 public class ExperimentModel {
 	
 	public static String name;
-	private static String participantId;
+	public static String participantId;
 	public static float x, y, updateRate, largestFontSize;
 	public static javafx.scene.paint.Color mapColor;
 	public static File mapImage;
@@ -35,10 +35,10 @@ public class ExperimentModel {
 	private static StringBuilder report = new StringBuilder();
 	private static long startTime = System.currentTimeMillis();
 	private static String lastClickTime = "";
-	private static String reportFileName;
-	static {
+	
+	private static String getReportFileName() {
 		Calendar cal = Calendar.getInstance();
-		reportFileName = new StringBuilder()
+		return new StringBuilder()
 				.append(cal.get(Calendar.MONTH)+1)
 				.append("-")
 				.append(cal.get(Calendar.DAY_OF_MONTH))
@@ -196,7 +196,7 @@ public class ExperimentModel {
 		String hitHeader =",,Label of Hit Object (object hit events),Distance to Object Center in Nautical Miles (object hit events)" + System.lineSeparator();
 		String identityViewedEvent = ",,Label of Object Viewed (identity viewed events)" + System.lineSeparator();
 		try {
-			PrintWriter reportWriter = new PrintWriter(reportFileName, "UTF-8");
+			PrintWriter reportWriter = new PrintWriter(getReportFileName(), "UTF-8");
 			for (String header : Arrays.asList(commonHeader, maskHeader, queryHeader, identityMaskHeader, textEntryHeader, clickHeader, hitHeader, identityViewedEvent)) {
 				reportWriter.write(header);
 			}

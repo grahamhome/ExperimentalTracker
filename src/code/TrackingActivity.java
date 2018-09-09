@@ -136,8 +136,7 @@ public class TrackingActivity extends Application {
 				GraphicalDialogWindow endWindow = new GraphicalDialogWindow("The experiment has ended.", "Exit");
 				endWindow.setAction((e2) -> {
 					try {
-						ExperimentModel.writeReport();
-						System.exit(0);
+						stage.close();
 					} catch (Exception e1) {
 						e1.printStackTrace();
 					}
