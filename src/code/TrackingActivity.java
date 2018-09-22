@@ -9,6 +9,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import code.ExperimentModel.Connector;
+import code.ExperimentModel.IdentityMaskEvent;
 import code.ExperimentModel.ScreenMaskEvent;
 import code.ExperimentModel.TextObject;
 import code.ExperimentModel.MovingObjectLabel;
@@ -133,16 +134,21 @@ public class TrackingActivity extends Application {
 			@Override
 			public void run() {
 				masterTransition.stop();
-				GraphicalDialogWindow endWindow = new GraphicalDialogWindow("The experiment has ended.", "Exit");
-				endWindow.setAction((e2) -> {
-					try {
-						ConfigImportActivity.exit();
-					} catch (Exception e1) {
-						e1.printStackTrace();
-					}
-							
-				});
-				endWindow.show();
+				if (--ExperimentModel.loopCount == 0) {
+					GraphicalDialogWindow endWindow = new GraphicalDialogWindow("The experiment has ended.", "Exit");
+					endWindow.setAction((e2) -> {
+						try {
+							ConfigImportActivity.exit();
+						} catch (Exception e1) {
+							e1.printStackTrace();
+						}
+								
+					});
+					endWindow.show();
+				} else {
+					scheduleExperimentEnd();
+					masterTransition.play();
+				}
 			}
 		}, (long)ExperimentModel.duration, TimeUnit.MILLISECONDS);
 	}
@@ -227,6 +233,10 @@ public class TrackingActivity extends Application {
 		public void scheduleMaskAppearances() {
 			for (ScreenMaskEvent mask : ExperimentModel.screenMaskEvents) {
 				new GraphicalMaskObject(mask);
+			}
+			for (IdentityMaskEvent mask : ExperimentModel.identityMaskEvents) {
+				new GraphicalIdentityMaskObject(mask);
+				
 			}
 		}
 		
@@ -408,7 +418,6 @@ public class TrackingActivity extends Application {
 						@Override
 						public void handle(MouseEvent event) {
 							maskLabel(false);
-							activeQuery.query.mousedOverMovingObjects.put(object, activeQuery.query.startTime-(System.currentTimeMillis()-experimentStartTime));
 							ExperimentModel.reportIdentityViewed(objectLabel.value);
 						}
 						
@@ -498,7 +507,7 @@ public class TrackingActivity extends Application {
 					});
 					/* Remove mask elements after specified delay */
 					try {
-						Thread.sleep((long)(event.endTime-event.startTime));
+						Thread.sleep((long)((event.endTime-event.startTime)+(ExperimentModel.duration*(event.loopNumber-1))));
 						Platform.runLater(new Runnable() {
 							@Override
 							public void run() {
@@ -511,7 +520,51 @@ public class TrackingActivity extends Application {
 					}
 				}
 			/* Set delay before mask appears */
-			}, (long)event.startTime, TimeUnit.MILLISECONDS);
+			}, (long)(event.startTime+(ExperimentModel.duration*(event.loopNumber-1))), TimeUnit.MILLISECONDS);
+		}
+	}
+	
+	
+	/**
+	 * A visual representation of an "identity mask", which appears and disappears at
+	 * specified times, obscuring the moving object labels when it appears.
+	 */
+	private class GraphicalIdentityMaskObject {
+		private IdentityMaskEvent event;
+		
+		private GraphicalIdentityMaskObject(IdentityMaskEvent maskEvent) {
+			event = maskEvent;
+			ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+			service.schedule(new Runnable() {
+				@Override
+				public void run() {
+					Platform.runLater(new Runnable() {
+						@Override
+						public void run() {
+							for (GraphicalMovingObject object : objects.values()) {
+								object.maskLabel(true);
+							}
+							ExperimentModel.reportIdentityMask(event, true);
+						}
+					});
+					/* Remove mask elements after specified delay */
+					try {
+						Thread.sleep((long)((event.endTime-event.startTime)+(ExperimentModel.duration*(event.loopNumber-1))));
+						Platform.runLater(new Runnable() {
+							@Override
+							public void run() {
+								for (GraphicalMovingObject object : objects.values()) {
+									object.maskLabel(false);
+								}
+								ExperimentModel.reportIdentityMask(event, false);
+							}
+						});
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			/* Set delay before mask appears */
+			}, (long)(event.startTime+(ExperimentModel.duration*(event.loopNumber-1))), TimeUnit.MILLISECONDS);
 		}
 	}
 	
@@ -575,12 +628,6 @@ public class TrackingActivity extends Application {
 							ExperimentModel.reportQuery(query, true);
 						}
 					});
-					// Mask identities if needed
-					if (query.mask) {
-						for (GraphicalMovingObject object : objects.values()) {
-							object.maskLabel(true);
-						}
-					}
 					/* Allow 'text entry' query to be closed by pressing the 'enter' button */
 					if (query.acceptsText) {
 						queryField.setOnKeyPressed(e -> {
@@ -632,7 +679,7 @@ public class TrackingActivity extends Application {
 					if (!query.wait) {
 						/* Close query after specified delay */
 						try {
-							Thread.sleep((long)(query.endTime-query.startTime));
+							Thread.sleep((long)((query.endTime-query.startTime)+(ExperimentModel.duration*(query.loopNumber-1))));
 							Platform.runLater(removeQuery);
 							root.setOnMouseClicked(null);
 							service.shutdownNow();
@@ -648,7 +695,7 @@ public class TrackingActivity extends Application {
 					}
 				};
 			/* Set delay before query appears */
-			}, (long)query.startTime, TimeUnit.MILLISECONDS);
+			}, (long)(query.startTime*+(ExperimentModel.duration*(query.loopNumber-1))), TimeUnit.MILLISECONDS);
 		}
 		
 		/**
@@ -656,11 +703,6 @@ public class TrackingActivity extends Application {
 		 */
 		public void remove() {
 			root.getChildren().remove(queryBox);
-			if (query.mask) {
-				for (GraphicalMovingObject object : objects.values()) {
-					object.maskLabel(false);
-				}
-			}
 			activeQuery = null;
 			ExperimentModel.reportQuery(query, false);
 		}

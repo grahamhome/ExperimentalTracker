@@ -123,8 +123,8 @@ public class ConfigImporter {
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		/* Import display FPS value */
 		try {
-			ExperimentModel.updateRate = Float.parseFloat(configLines.get(lineNumber = lineNumbers.next()));
-		} catch (NumberFormatException e) { report("Screen refresh rate is not a number"); }
+			ExperimentModel.loopCount = Integer.parseInt(configLines.get(lineNumber = lineNumbers.next()));
+		} catch (NumberFormatException e) { report("Experiment repeat count must be a whole number greater than 0"); return; }
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		/* Import experiment duration value */
@@ -444,8 +444,8 @@ public class ConfigImporter {
 		while (line.startsWith(MASK_PREFIX) || line.startsWith(IDENTITY_MASK_PREFIX) || line.startsWith(QUERY_PREFIX)) {
 			if (line.startsWith(MASK_PREFIX)) {
 				String[] maskData = line.replace(MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (maskData.length != 3) {
-					report("Screen mask event data must contain exactly 3 values");
+				if (maskData.length != 4) {
+					report("Screen mask event data must contain exactly 4 values");
 				} else {
 					ScreenMaskEvent maskEvent = new ScreenMaskEvent();
 					valid = true;
@@ -468,11 +468,19 @@ public class ConfigImporter {
 					if (((maskEvent.startTime = parseTime(maskData[1])) == -1) || ((maskEvent.endTime = parseTime(maskData[2])) == -1)) {
 						valid = false;
 					} else if (maskEvent.startTime < 0 || maskEvent.endTime > ExperimentModel.duration) {
-						report("Screen mask appearances must start before the beginning and finish before the end of the experiment");
+						report("Screen mask appearances must start after the beginning and finish before the end of the experiment");
 						valid = false;
 					}
 					if (maskEvent.conflictsWithOther()) {
 						report("Screen mask event would conflict with another mask event which already exists");
+						valid = false;
+					}
+					try {
+						if ((maskEvent.loopNumber = Integer.parseInt(maskData[3])) <= 0 || maskEvent.loopNumber > ExperimentModel.loopCount) {
+							report("Screen mask loop number must be between 0 and the maximum loop count of the experiment");
+						}
+					} catch (NumberFormatException e) {
+						report("Screen mask loop number must be a whole number");
 						valid = false;
 					}
 					if (valid) {
@@ -481,10 +489,28 @@ public class ConfigImporter {
 				} 
 			} else if (line.startsWith(IDENTITY_MASK_PREFIX)) {
 				String[] maskData = line.replace(IDENTITY_MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (maskData.length > 1) {
-					report("Identity mask event data must contain exactly 1 value");
+				if (maskData.length > 3) {
+					report("Identity mask event data must contain exactly 3 values");
 				} else {
-					
+					IdentityMaskEvent maskEvent = new IdentityMaskEvent();
+					if (((maskEvent.startTime = parseTime(maskData[0])) == -1) || ((maskEvent.endTime = parseTime(maskData[1]) ) == -1)) {
+						report("Screen mask appearances must start after the beginning and finish before the end of the experiment");
+						valid = false;
+					} else if (maskEvent.startTime < 0 || maskEvent.startTime > ExperimentModel.duration || maskEvent.endTime < 0 || maskEvent.endTime > ExperimentModel.duration) {
+						report("Identity mask appearances must start before the beginning and finish before the end of the experiment");
+						valid = false;
+					}
+					try {
+						if ((maskEvent.loopNumber = Integer.parseInt(maskData[2])) <= 0 || maskEvent.loopNumber > ExperimentModel.loopCount) {
+							report("Identity mask loop number must be between 0 and the maximum loop count of the experiment");
+						}
+					} catch (NumberFormatException e) {
+						report("Identity mask loop number must be a numeric value");
+						valid = false;
+					}
+					if (valid) {
+						ExperimentModel.identityMaskEvents.add(maskEvent);
+					}
 				}
 			} else {
 				String[] queryData = line.replace(QUERY_PREFIX, "").split(PRIMARY_SEPARATOR);
@@ -505,7 +531,9 @@ public class ConfigImporter {
 							valid = false;
 					}
 					
-					query.startTime = parseTime(queryData[1]);
+					if ((query.startTime = parseTime(queryData[1])) == -1) {
+						valid = false;
+					}
 					String endTime = queryData[2];
 					if (endTime.equals("wait")) {
 						query.wait = true;
@@ -534,15 +562,17 @@ public class ConfigImporter {
 						report("Query position values must be numeric values");
 						valid = false;
 					}
-					if (!queryData[5].equals("y") && !queryData[5].equals("n")) {
-						report("Query mask setting must be 'y' or 'n'");
-						valid = false;
-					} else {
-						query.mask = queryData[5].equals("y");
-					}
-					query.text = queryData[6];
+					query.text = queryData[5];
 					if (valid) {
 						ExperimentModel.queries.add(query);
+					}
+					try {
+						if ((query.loopNumber = Integer.parseInt(queryData[3])) <= 0 || query.loopNumber > ExperimentModel.loopCount) {
+							report("Identity mask loop number must be between 0 and the maximum loop count of the experiment");
+						}
+					} catch (NumberFormatException e) {
+						report("Identity mask loop number must be a numeric value");
+						valid = false;
 					}
 				}
 			}

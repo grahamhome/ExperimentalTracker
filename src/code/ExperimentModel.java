@@ -21,7 +21,8 @@ public class ExperimentModel {
 	
 	public static String name;
 	public static String participantId;
-	public static float x, y, updateRate, largestFontSize;
+	public static float x, y, largestFontSize;
+	public static int loopCount;
 	public static javafx.scene.paint.Color mapColor;
 	public static File mapImage;
 	public static double duration;
@@ -58,7 +59,6 @@ public class ExperimentModel {
 		name = null;
 		x = 0;
 		y = 0;
-		updateRate = 0;
 		mapColor = null;
 		mapImage = null;
 		duration = 0;
@@ -110,6 +110,19 @@ public class ExperimentModel {
 	}
 	
 	/**
+	 * Add the appearance or disappearance of an identity mask to the experiment report.
+	 * @param mask : The IdentityMaskEvent to report.
+	 * @param start : True to log the mask appearance, false to log the mask disappearance.
+	 */
+	public static void reportIdentityMask(IdentityMaskEvent mask, boolean show) {
+		reportTime();
+		report.append("Identity Mask Event");
+		report.append(",");
+		report.append(show ? "Appearance" : "Disappearance");
+		report.append(System.lineSeparator());
+	}
+	
+	/**
 	 * Add the appearance or disappearance of a query to the experiment report.
 	 * @param query : The QueryEvent to report.
 	 * @param show : True to log the query appearance, false to log the query disappearance.
@@ -121,13 +134,6 @@ public class ExperimentModel {
 		report.append(",");
 		report.append(query.text.replaceAll(",", ""));
 		report.append(System.lineSeparator());
-		if (query.mask) {
-			report.append(queryTime);
-			report.append("Identity Mask Event");
-			report.append(",");
-			report.append(show ? "Appearance" : "Disappearance");
-			report.append(System.lineSeparator());
-		}
 	}
 	
 	/**
@@ -336,6 +342,7 @@ public class ExperimentModel {
 	public static class ScreenMaskEvent {
 		public File image;
 		public double startTime, endTime;
+		public int loopNumber;
 		
 		/**
 		 * Determines if one MaskEvent conflicts (overlaps) with any other by comparing their start and end times.
@@ -351,7 +358,8 @@ public class ExperimentModel {
 	 * until they detect a mouse-over event.
 	 */
 	public static class IdentityMaskEvent {
-		public double startTime;
+		public double startTime, endTime;
+		public int loopNumber;
 	}
 	
 	/**
@@ -368,8 +376,7 @@ public class ExperimentModel {
 		public float x, y;
 		public Click responseClick;
 		public TextEntry responseText;
-		public HashMap<MovingObject, Double> mousedOverMovingObjects = new HashMap<>();
-		public boolean mask = false;
+		public int loopNumber;
 		
 		/**
 		 * Determines if one Query conflicts (overlaps) with any other by comparing their start and end times.
