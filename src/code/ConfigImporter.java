@@ -121,7 +121,7 @@ public class ConfigImporter {
 		}
 		if (!valid) { return; } // Continuing with an invalid map would cause most other config lines to fail
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
-		/* Import display FPS value */
+		/* Import experiment loop count */
 		try {
 			ExperimentModel.loopCount = Integer.parseInt(configLines.get(lineNumber = lineNumbers.next()));
 		} catch (NumberFormatException e) { report("Experiment repeat count must be a whole number greater than 0"); return; }

@@ -321,8 +321,8 @@ public class TrackingActivity extends Application {
 				label = new Label(objectLabel.value);
 				label.setTextFill(objectLabel.color);
 				label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
-				label.setMinWidth(objectLabel.value.length()*objectLabel.size/2.15);
-				label.setMaxWidth(objectLabel.value.length()*objectLabel.size/2.15);
+				label.setMinWidth(Region.USE_PREF_SIZE);
+				label.setMaxWidth(Region.USE_PREF_SIZE);
 				label.setMaxHeight(objectLabel.size);
 				label.setFont(Font.loadFont(textFontURL.toString(), objectLabel.size));
 				root.getChildren().add(label);
