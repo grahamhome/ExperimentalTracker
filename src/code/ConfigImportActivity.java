@@ -9,6 +9,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.input.KeyCode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Button;
@@ -109,6 +110,11 @@ public class ConfigImportActivity extends Application {
 		label.setAlignment(Pos.CENTER_LEFT);
 		TextField numberField = new TextField();
 		numberField.setMinWidth(50);
+		numberField.setOnKeyPressed(e -> {
+			if (e.getCode().equals(KeyCode.ENTER)) {
+				storeParticipantNumber(numberField.getText());
+			}
+		});
 		HBox fieldBox = new HBox(5, label, numberField);
 		fieldBox.setMaxHeight(Region.USE_PREF_SIZE);
 		fieldBox.setAlignment(Pos.CENTER_LEFT);
@@ -121,14 +127,18 @@ public class ConfigImportActivity extends Application {
 		boxBox.setMaxHeight(Region.USE_PREF_SIZE);
 		enterButton.setMinWidth(Region.USE_PREF_SIZE);
 		enterButton.setOnMouseReleased((e) -> {
-			try {
-				ExperimentModel.participantId = numberField.getText();
-				new TrackingActivity().start(stage);
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
+			storeParticipantNumber(numberField.getText());
 		});
 		root.getChildren().add(boxBox);
+	}
+	
+	private void storeParticipantNumber(String number) {
+		try {
+			ExperimentModel.participantId = number;
+			new TrackingActivity().start(stage);
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
 	}
 	
 	/**

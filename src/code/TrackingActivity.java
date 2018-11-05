@@ -8,20 +8,24 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import code.ExperimentModel.BinaryQuery;
 import code.ExperimentModel.Connector;
+import code.ExperimentModel.FindQuery;
 import code.ExperimentModel.IdentityMaskEvent;
 import code.ExperimentModel.ScreenMaskEvent;
 import code.ExperimentModel.TextObject;
+import code.ExperimentModel.TextResponseQuery;
 import code.ExperimentModel.MovingObjectLabel;
 import code.ExperimentModel.Query;
-import code.ExperimentModel.Query.Click;
 import code.ExperimentModel.MovingObject;
 import code.ExperimentModel.WaypointObject;
+import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -38,6 +42,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
@@ -65,22 +70,27 @@ import javafx.util.Duration;
  */
 public class TrackingActivity extends Application {
 	
-	private Stage stage;
-	private Scene scene;
-	private Group root;
-	private Map map = new Map();
-	private Rectangle2D bounds;
-	private double stageWidth, stageHeight, mapOffsetX, mapOffsetY, mapHeight, mapWidth;
-	private HashMap<WaypointObject, GraphicalStationaryObject> waypoints = new HashMap<>();
-	private HashMap<MovingObject, GraphicalMovingObject> objects = new HashMap<>();
-	private URL iconFontURL = TrackingActivity.class.getResource("/Font-Awesome-5-Free-Solid-900.otf");
-	private URL textFontURL = TrackingActivity.class.getResource("/segoeui.ttf");
-	private ParallelTransition masterTransition = new ParallelTransition();
-	private GraphicalQueryObject activeQuery;
-	private HashMap<Query, GraphicalQueryObject> queries = new HashMap<>();
-	private double experimentStartTime;
+	private static Stage stage;
+	private static Scene scene;
+	private static Group root;
+	private static Map map = new Map();
+	private static Rectangle2D bounds;
+	private static double stageWidth;
+	private static double stageHeight;
+	private static double mapOffsetX;
+	private static double mapOffsetY;
+	private static double mapHeight;
+	private static double mapWidth;
+	private static HashMap<WaypointObject, GraphicalStationaryObject> waypoints = new HashMap<>();
+	private static HashMap<MovingObject, GraphicalMovingObject> objects = new HashMap<>();
+	private static URL iconFontURL = TrackingActivity.class.getResource("/Font-Awesome-5-Free-Solid-900.otf");
+	private static URL textFontURL = TrackingActivity.class.getResource("/segoeui.ttf");
+	private static ParallelTransition masterTransition = new ParallelTransition();
+	private static HashMap<Query, GraphicalQueryObject> queries = new HashMap<>();
+	private static double experimentStartTime;
+	private static int loop = 0;
+	private static GraphicalQueryObject activeQuery;
 	
-
 	/**
 	 * Calls methods to create all elements of the object tracking display.
 	 */
@@ -98,6 +108,7 @@ public class TrackingActivity extends Application {
 		stageHeight = bounds.getHeight();
 		map.drawMap();
 		map.drawWaypoints();
+		map.drawConnectors();
 		map.drawObjects();
 		/* Move map frame to front so it will hide all objects which are outside map boundaries */
 		map.frame.toFront();
@@ -114,11 +125,46 @@ public class TrackingActivity extends Application {
 		/* Set dialog action to start the experiment */
 		startWindow.setAction((e) -> {
 			startWindow.hide();
-			map.scheduleMaskAppearances();
-			map.scheduleQueryAppearances();
-			scheduleExperimentEnd();
-			masterTransition.play();
 			experimentStartTime = System.currentTimeMillis();
+			ExperimentModel.reportStatus(true);
+			ExperimentModel.reportLoop(loop+1);
+			masterTransition.play();
+			SchedulableEvent event = ExperimentModel.events.get(loop);
+			if (event != null) {
+				event.execute();
+			}
+			masterTransition.setOnFinished(new EventHandler<ActionEvent>() {
+
+				@Override
+				public void handle(ActionEvent event) {
+					masterTransition.stop();
+					if (++loop > ExperimentModel.loopCount) {
+						ExperimentModel.reportStatus(false);
+						GraphicalDialogWindow endWindow = new GraphicalDialogWindow("The experiment has ended.", "Exit");
+						endWindow.setAction((e2) -> {
+							try {
+								ConfigImportActivity.exit();
+							} catch (Exception e1) {
+								e1.printStackTrace();
+							}
+									
+						});
+						endWindow.show();
+					} else {
+						if (activeQuery != null) {
+							activeQuery.hide();
+						}
+						ExperimentModel.reportLoop(loop+1);
+						masterTransition.play();
+						SchedulableEvent nextEvent = ExperimentModel.events.get(loop);
+						if (nextEvent != null) {
+							nextEvent.execute();
+						}
+					}
+					
+				}
+			});
+			
 		});
 		startWindow.show();
 		/* The stage is not shown until here so that the map is not visible (even for a split-second) before the intro dialog box is shown. */
@@ -147,6 +193,8 @@ public class TrackingActivity extends Application {
 					endWindow.show();
 				} else {
 					scheduleExperimentEnd();
+					map.scheduleMaskAppearances();
+					map.scheduleQueryAppearances();
 					masterTransition.play();
 				}
 			}
@@ -156,9 +204,10 @@ public class TrackingActivity extends Application {
 	/**
 	 * Represents the map containing waypoints, connectors, moving objects, queries and information displays.
 	 */
-	private class Map {
+	private static class Map {
 		
-		private Rectangle mapShape;
+		public Rectangle mapShape;
+		public ImageView mapImage;
 		
 		/* A visual element which surrounds the map image or shape to hide any object positioned outside the map itself. */
 		public Shape frame;
@@ -187,14 +236,14 @@ public class TrackingActivity extends Application {
 				root.getChildren().add(mapShape);
 			} else {
 				/* Fill map with specified image, preserving image ratio */
-				Image mapImage = new Image(ExperimentModel.mapImage.toURI().toString());
-				ImageView map = new ImageView(mapImage);
-				map.setPreserveRatio(true);
-				map.setFitWidth(mapWidth);
-				map.setFitHeight(mapHeight);
-				map.setX(mapOffsetX);
-				map.setY(mapOffsetY);
-				root.getChildren().add(map);
+				Image map = new Image(ExperimentModel.mapImage.toURI().toString());
+				mapImage = new ImageView(map);
+				mapImage.setPreserveRatio(true);
+				mapImage.setFitWidth(mapWidth);
+				mapImage.setFitHeight(mapHeight);
+				mapImage.setX(mapOffsetX);
+				mapImage.setY(mapOffsetY);
+				root.getChildren().add(mapImage);
 			}
 			/* Draw obscuring frame around map to ensure moving & stationary objects will only appear inside map itself */
 			frame = Rectangle.subtract(new Rectangle(stageWidth, stageHeight, Color.BLACK), new Rectangle(mapOffsetX,mapOffsetY,mapWidth,mapHeight));
@@ -204,7 +253,7 @@ public class TrackingActivity extends Application {
 			 * even if they are placed at its edges (e.g. at (0,0)).
 			 */
 			mapWidth -= ExperimentModel.largestFontSize;
-			mapHeight -= ExperimentModel.largestFontSize;
+			mapHeight -= ExperimentModel.largestFontSize*1.4;
 			mapOffsetY += ExperimentModel.largestFontSize/2;
 			mapOffsetX += ExperimentModel.largestFontSize/2;
 		}
@@ -215,6 +264,15 @@ public class TrackingActivity extends Application {
 		private void drawWaypoints() {
 			for (WaypointObject waypoint: ExperimentModel.waypoints.values()) {
 				waypoints.put(waypoint, new GraphicalStationaryObject(waypoint));
+			}
+		}
+		
+		/**
+		 * Draws all waypoint connectors on map.
+		 */
+		private void drawConnectors() {
+			for (Entry<WaypointObject,GraphicalStationaryObject> entry : waypoints.entrySet()) {
+				entry.getValue().drawConnectors(entry.getKey());
 			}
 		}
 		
@@ -234,10 +292,6 @@ public class TrackingActivity extends Application {
 			for (ScreenMaskEvent mask : ExperimentModel.screenMaskEvents) {
 				new GraphicalMaskObject(mask);
 			}
-			for (IdentityMaskEvent mask : ExperimentModel.identityMaskEvents) {
-				new GraphicalIdentityMaskObject(mask);
-				
-			}
 		}
 		
 		/**
@@ -253,7 +307,7 @@ public class TrackingActivity extends Application {
 	/**
 	 * Contains attributes common to all visual objects.
 	 */
-	private abstract class GraphicalObject {
+	private abstract static class GraphicalObject {
 		private TextObject baseIcon;
 		public Text graphicalIcon;
 		public double x, y;
@@ -301,7 +355,7 @@ public class TrackingActivity extends Application {
 	/**
 	 * Visually represents a moving object.
 	 */
-	private class GraphicalMovingObject extends GraphicalObject {
+	private static class GraphicalMovingObject extends GraphicalObject {
 		private MovingObject object;
 		private MovingObjectLabel objectLabel;
 		private Label label;
@@ -392,9 +446,9 @@ public class TrackingActivity extends Application {
 		public double[] getLabelRelativePosition(Text target) {
 			switch (objectLabel.position) {
 				case RIGHT:
-					return new double[] {target.getX()+(objectLabel.value.length()*objectLabel.size/4.3)+(graphicalIcon.getLayoutBounds().getWidth()/2)+5, target.getY()-objectLabel.size/4};
+					return new double[] {target.getX()+(objectLabel.value.length()*objectLabel.size/3.8)+(graphicalIcon.getLayoutBounds().getWidth()/2)+5, target.getY()-objectLabel.size/4};
 				case LEFT:
-					return new double [] {target.getX()-(objectLabel.value.length()*objectLabel.size/4.3)-(graphicalIcon.getLayoutBounds().getWidth()/2)-5, target.getY()-objectLabel.size/4};
+					return new double [] {target.getX()-(objectLabel.value.length()*objectLabel.size/3.8)-(graphicalIcon.getLayoutBounds().getWidth()/2)-5, target.getY()-objectLabel.size/4};
 				case ABOVE:
 					return new double[] {target.getX(), target.getY()-(objectLabel.size*2)};
 				case BELOW:
@@ -411,24 +465,28 @@ public class TrackingActivity extends Application {
 		public void maskLabel(boolean show) {
 			if (label != null) {
 				if (show) {
-					label.setTextFill(Color.BLACK);
-					label.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
-					EventHandler<MouseEvent> listener = new EventHandler<MouseEvent>() {
+					Platform.runLater(() -> {
+						label.setTextFill(Color.BLACK);
+						label.setBackground(new Background(new BackgroundFill(Color.BLACK, null, null)));
+						EventHandler<MouseEvent> listener = new EventHandler<MouseEvent>() {
 
-						@Override
-						public void handle(MouseEvent event) {
-							maskLabel(false);
-							ExperimentModel.reportIdentityViewed(objectLabel.value);
-						}
-						
-					};
-					label.setOnMouseMoved(listener);
-					graphicalIcon.setOnMouseMoved(listener);
+							@Override
+							public void handle(MouseEvent event) {
+								maskLabel(false);
+								ExperimentModel.reportIdentityViewed(objectLabel.value);
+							}
+							
+						};
+						label.setOnMouseMoved(listener);
+						graphicalIcon.setOnMouseMoved(listener);
+					});
 				} else {
-					label.setTextFill(objectLabel.color);
-					label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
-					label.setOnMouseMoved(null);
-					graphicalIcon.setOnMouseMoved(null);
+					Platform.runLater(() -> {
+						label.setTextFill(objectLabel.color);
+						label.setBackground(new Background(new BackgroundFill(objectLabel.backgroundColor, null, null)));
+						label.setOnMouseMoved(null);
+						graphicalIcon.setOnMouseMoved(null);
+					});
 				}
 			}
 		}
@@ -437,7 +495,7 @@ public class TrackingActivity extends Application {
 	/**
 	 * Visually represents a waypoint.
 	 */
-	private class GraphicalStationaryObject extends GraphicalObject {
+	private static class GraphicalStationaryObject extends GraphicalObject {
 		
 		/**
 		 * Creates a visual representation of a waypoint from a WaypointObject.
@@ -445,7 +503,6 @@ public class TrackingActivity extends Application {
 		 */
 		public GraphicalStationaryObject(WaypointObject waypoint) {
 			super(waypoint);
-			drawConnectors(waypoint);
 		}
 		
 		/**
@@ -465,124 +522,115 @@ public class TrackingActivity extends Application {
 		}
 	}
 	
+	public abstract static class SchedulableEvent {
+		public SchedulableEvent next = null;
+		public int loopNumber;
+		public long delay;
+		public long duration;
+		public boolean scheduledTermination = false;
+		public boolean responseReceived = false;
+		public void execute() {
+			// Schedule event appearance
+			ScheduledExecutorService addEventService = Executors.newSingleThreadScheduledExecutor();
+			addEventService.schedule(new Runnable() {
+				@Override
+				public void run() {
+					if (loop == loopNumber) {
+						if (activeQuery != null) {
+							activeQuery.hide();
+						}
+						show();
+					}
+					if (scheduledTermination) {
+						// Schedule mask removal
+						ScheduledExecutorService removeMaskService = Executors.newSingleThreadScheduledExecutor();
+						removeMaskService.schedule(new Runnable() {
+							@Override
+							public void run() {
+								if (!responseReceived) {
+									hide();
+									if (next != null && loopNumber == loop) {
+										next.execute();
+									}
+								}
+							}
+						}, duration, TimeUnit.MILLISECONDS);
+					}
+				}
+			}, delay, TimeUnit.MILLISECONDS);
+		}
+		public void show() {}
+		public void hide() {}
+	}
+	
 	/**
 	 * A visual representation of a 'mask event' which 
 	 * appears and disappears at specified times, obscuring 
 	 * the map when it appears.
 	 */
-	private class GraphicalMaskObject {
+	public static class GraphicalMaskObject extends SchedulableEvent {
 		private ImageView mask;
 		private ScreenMaskEvent maskEvent;
+		private Rectangle maskBackground;
 		
 		/**
 		 * Constructs a graphical representation of a mask event and
 		 * schedules its appearance and disappearance.
 		 * @param event : The object representing the mask event to be depicted visually.
 		 */
-		private GraphicalMaskObject(ScreenMaskEvent event) {
+		public GraphicalMaskObject(ScreenMaskEvent event) {
 			maskEvent = event;
 			/* Create the visual elements of the mask */
-			Rectangle maskBackground = new Rectangle(stageWidth, stageHeight);
-			maskBackground.setFill(Color.BLACK);
 			Image maskImage = new Image(event.image.toURI().toString());
 			mask = new ImageView(maskImage);
 			mask.setPreserveRatio(true);
+			loopNumber = maskEvent.loopNumber;
+			delay = (long)maskEvent.startTime;
+			duration = (long)(maskEvent.endTime-maskEvent.startTime);
+			scheduledTermination = true;
+		}
+		
+		@Override
+		public void show() {
+			/* Position mask on screen over map */
+			maskBackground = new Rectangle(stageWidth, stageHeight);
+			maskBackground.setFill(Color.BLACK);
 			mask.setFitWidth(mapWidth);
 			mask.setFitHeight(mapHeight);
-			/* Position mask on screen over map */
 			mask.setX(mapOffsetX+((mapWidth-mask.getLayoutBounds().getWidth())/2));
 			mask.setY(mapOffsetY+((mapHeight-mask.getLayoutBounds().getHeight())/2));
-			/* Create delayed task to add mask elements to screen */
-			ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-			service.schedule(new Runnable() {
-				@Override
-				public void run() {
-					Platform.runLater(new Runnable() {
-						@Override
-						public void run() {
-							root.getChildren().addAll(maskBackground, mask);
-							map.queries.stream().forEach(q -> q.bringToFront());
-							ExperimentModel.reportMask(event, true);
-						}
-					});
-					/* Remove mask elements after specified delay */
-					try {
-						Thread.sleep((long)((event.endTime-event.startTime)+(ExperimentModel.duration*(event.loopNumber-1))));
-						Platform.runLater(new Runnable() {
-							@Override
-							public void run() {
-								root.getChildren().removeAll(maskBackground, mask);
-								ExperimentModel.reportMask(event, false);
-							}
-						});
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-			/* Set delay before mask appears */
-			}, (long)(event.startTime+(ExperimentModel.duration*(event.loopNumber-1))), TimeUnit.MILLISECONDS);
+			Platform.runLater(() -> {
+				root.getChildren().addAll(maskBackground, mask);
+			});
+			ExperimentModel.reportMask(maskEvent, true);
 		}
-	}
-	
-	
-	/**
-	 * A visual representation of an "identity mask", which appears and disappears at
-	 * specified times, obscuring the moving object labels when it appears.
-	 */
-	private class GraphicalIdentityMaskObject {
-		private IdentityMaskEvent event;
 		
-		private GraphicalIdentityMaskObject(IdentityMaskEvent maskEvent) {
-			event = maskEvent;
-			ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-			service.schedule(new Runnable() {
-				@Override
-				public void run() {
-					Platform.runLater(new Runnable() {
-						@Override
-						public void run() {
-							for (GraphicalMovingObject object : objects.values()) {
-								object.maskLabel(true);
-							}
-							ExperimentModel.reportIdentityMask(event, true);
-						}
-					});
-					/* Remove mask elements after specified delay */
-					try {
-						Thread.sleep((long)((event.endTime-event.startTime)+(ExperimentModel.duration*(event.loopNumber-1))));
-						Platform.runLater(new Runnable() {
-							@Override
-							public void run() {
-								for (GraphicalMovingObject object : objects.values()) {
-									object.maskLabel(false);
-								}
-								ExperimentModel.reportIdentityMask(event, false);
-							}
-						});
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-			/* Set delay before mask appears */
-			}, (long)(event.startTime+(ExperimentModel.duration*(event.loopNumber-1))), TimeUnit.MILLISECONDS);
+		@Override
+		public void hide() {
+			Platform.runLater(() -> {
+				root.getChildren().removeAll(maskBackground, mask);
+				ExperimentModel.reportMask(maskEvent, false);
+			});
 		}
+			
 	}
 	
 	/**
 	 * A visual representation of a 'text entry' or 'click object' query which
 	 * appears and disappears at specified times.
 	 */
-	private class GraphicalQueryObject {
+	public static class GraphicalQueryObject extends SchedulableEvent {
 		
 		private VBox queryBox;
 		private Query query;
+		private TextField queryField;
 		
 		/**
 		 * Constructs a graphical representation of a given Query object and
 		 * schedules its appearance and disappearance.
 		 * @param query : The Query object to be represented graphically.
 		 */
-		private GraphicalQueryObject(Query query) {
+		public GraphicalQueryObject(Query query) {
 			/* Create the visual elements of the query */
 			queryBox = new VBox(5);
 			queryBox.setPadding(new Insets(5));
@@ -590,121 +638,142 @@ public class TrackingActivity extends Application {
 			queryBox.setAlignment(Pos.CENTER);
 			queryBox.setMaxWidth(Region.USE_PREF_SIZE);
 			queryBox.setMaxHeight(Region.USE_PREF_SIZE);
-			Label queryInstructions = new Label(query.text);
+			Label queryInstructions = new Label(query.text + (query instanceof BinaryQuery ? System.lineSeparator() + "Left-click for \"yes\", right-click for \"no\"" : ""));
 			queryInstructions.setMinWidth(Region.USE_PREF_SIZE);
 			queryInstructions.setMaxWidth(Region.USE_PREF_SIZE);
 			queryInstructions.setFont(Font.loadFont(textFontURL.toString(), 15));
 			queryBox.getChildren().add(queryInstructions);
 			/* Only 'text input' queries have a text input field */
-			TextField queryField = new TextField();
-			if (query.acceptsText) {
+			queryField = new TextField();
+			if (query instanceof TextResponseQuery) {
 					queryBox.getChildren().add(queryField);
 			}
-			/* Position query elements on screen using specified coordinates and length of query string */
-			Platform.runLater(new Runnable() {
-				@Override
-				public void run() {
-					queryBox.relocate(((query.x*(mapWidth/ExperimentModel.x))+mapOffsetX)-(queryBox.getWidth()/2), 
-							((query.y*(mapHeight/ExperimentModel.y))+mapOffsetY)-(query.acceptsText ? 20 : 10));
-				}
-			});
+			loopNumber = query.loopNumber;
+			delay = (long)query.startTime;
+			if (!query.wait) {
+				duration = (long)(query.endTime-query.startTime);
+				scheduledTermination = true;
+			}
 			this.query = query;
 			queries.put(query, this);
-			/* Create delayed task to add query elements to view at specified time */
-			ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-			service.schedule(new Runnable() {
-				
-				/* Adds query elements to screen */
-				@Override
-				public void run() {
-					Platform.runLater(new Runnable() {
-						@Override
-						public void run() {
-							if (activeQuery != null) {
-								activeQuery.remove();
-							}
-							root.getChildren().add(queryBox);
-							activeQuery = queries.get(query);
-							ExperimentModel.reportQuery(query, true);
-						}
-					});
-					/* Allow 'text entry' query to be closed by pressing the 'enter' button */
-					if (query.acceptsText) {
-						queryField.setOnKeyPressed(e -> {
-							if (e.getCode().equals(KeyCode.ENTER)) {
-								query.responseText = query.new TextEntry(queryField.getText(), query.startTime-(experimentStartTime-System.currentTimeMillis()));
-								ExperimentModel.reportTextEntry(query.responseText.value);
-								Platform.runLater(removeQuery);
-								service.shutdownNow();
-							}
-						});
-					} else {
-						/* Allow 'click object' query to be closed by clicking the screen */
-						root.setOnMouseClicked(e -> {
-							// Ensure click is within map boundaries
-							if (map.mapShape.contains(new Point2D(e.getX(), e.getY()))) {
-								System.out.println("Clicked: " + (float)e.getSceneX() + ", " + (float)e.getSceneY());
-								query.responseClick = query.new Click((float)e.getSceneX(), (float)e.getSceneY(), System.currentTimeMillis()-experimentStartTime);
-								Circle selectedArea = new Circle(e.getX(), e.getY(), Math.sqrt((((ExperimentModel.clickRadius/100)*mapHeight*mapWidth))/Math.PI));
-								// Check waypoints
-								for (Entry<WaypointObject, GraphicalStationaryObject> waypointEntry : waypoints.entrySet()) {
-									if (selectedArea.contains(new Point2D(waypointEntry.getValue().x, waypointEntry.getValue().y))) {
-										query.responseClick.nearbyObjects.add(waypointEntry.getKey());
-									}
-								} // Check moving objects
-								for (Entry<MovingObject, GraphicalMovingObject> objectEntry : objects.entrySet()) {
-									Text objectIcon = objectEntry.getValue().graphicalIcon;
-									double x = objectIcon.getX() + objectIcon.getTranslateX();
-									double y  = objectIcon.getY() + objectIcon.getTranslateY();
-									System.out.println((objectEntry.getValue().label != null ? objectEntry.getValue().label.getText() + " ": "Unlabelled ") + (x) + ", " + (y));
-									if (selectedArea.contains(new Point2D(objectIcon.getX() + objectIcon.getTranslateX(), objectIcon.getY() + objectIcon.getTranslateY()))) { 
-										query.responseClick.nearbyObjects.add(objectEntry.getKey());
-										System.out.println("Hit: " + (objectEntry.getValue().label != null ? objectEntry.getValue().label.getText() : "Unlabelled"));
-									}
-								}
-								System.out.println("---");
-								Platform.runLater(removeQuery);
-								root.setOnMouseClicked(null);
-								ExperimentModel.reportClick(query.responseClick);
-								for (TextObject hitObject: query.responseClick.nearbyObjects) {
-									GraphicalMovingObject movingObj = objects.get(hitObject);
-									if (movingObj != null) {
-										ExperimentModel.reportObjectHit((movingObj.label != null ? movingObj.label.getText() : "No label"), 0);
-									}
-								}
-								service.shutdownNow();
-							}
-						});
-					}
-					if (!query.wait) {
-						/* Close query after specified delay */
-						try {
-							Thread.sleep((long)((query.endTime-query.startTime)+(ExperimentModel.duration*(query.loopNumber-1))));
-							Platform.runLater(removeQuery);
-							root.setOnMouseClicked(null);
-							service.shutdownNow();
-						} catch (InterruptedException e) { /* This is expected when the service is terminated early via shutdownNow() */ }
-					}
+		}
+		
+		@Override
+		public void execute() {
+			super.execute();
+		}
+		
+		@Override
+		public void show() {
+			ExperimentModel.reportQuery(query, true);
+			activeQuery = this;
+			/* Position query elements on screen using specified coordinates and length of query string */
+			Platform.runLater(() -> { 
+				queryBox.relocate(((query.positionX*(mapWidth/ExperimentModel.x))+mapOffsetX)-(queryBox.getWidth()/2), 
+						((query.positionY*(mapHeight/ExperimentModel.y))+mapOffsetY)-(query instanceof TextResponseQuery ? 20 : 10));
+				root.getChildren().add(queryBox);
+			});
+			if (query.maskIdentities) {
+				for (GraphicalMovingObject object : objects.values()) {
+					object.maskLabel(true);
 				}
-				
-				/* A sub-task which removes the query elements from the screen when called */
-				Runnable removeQuery = new Runnable() {
-					@Override
-					public void run() {
-						remove();
+				ExperimentModel.reportIdentityMask(true);
+			}
+			if (query.freeze) {
+				ExperimentModel.reportFreeze(true);
+				masterTransition.pause();
+			}
+			/* Allow 'text entry' query to be closed by pressing the 'enter' button */
+			if (query instanceof TextResponseQuery) {
+				queryField.setOnKeyPressed(e -> {
+					if (e.getCode().equals(KeyCode.ENTER)) {
+						((TextResponseQuery)query).respond(queryField.getText(), query.startTime-(experimentStartTime-System.currentTimeMillis()));
+						ExperimentModel.reportTextEntry((TextResponseQuery)query);
+						responseReceived = true;
+						hide();
+						if (next != null && loopNumber == loop) {
+							next.execute();
+						}
 					}
-				};
-			/* Set delay before query appears */
-			}, (long)(query.startTime*+(ExperimentModel.duration*(query.loopNumber-1))), TimeUnit.MILLISECONDS);
+				});
+			} else {
+				/* Allow 'click object' query to be closed by clicking the screen */
+				root.setOnMouseClicked(e -> {
+					if (query instanceof FindQuery) {
+						// Ensure click is within map boundaries
+						if ((map.mapImage == null ? map.mapShape : map.mapImage).contains(new Point2D(e.getX(), e.getY()))) {
+							double nmX = ((e.getX()-mapOffsetX)/map.mapShape.getWidth())*ExperimentModel.x;
+							double nmY = ((e.getY()-mapOffsetY)/map.mapShape.getHeight())*ExperimentModel.y;
+							((FindQuery)query).respond((float)nmX, (float)nmY, query.startTime-(experimentStartTime-System.currentTimeMillis()));
+							Circle selectedArea = new Circle(e.getX(), e.getY(), Math.sqrt((((ExperimentModel.clickRadius/100)*mapHeight*mapWidth))/Math.PI));
+							// Check waypoints
+							for (Entry<WaypointObject, GraphicalStationaryObject> waypointEntry : waypoints.entrySet()) {
+								if (selectedArea.contains(new Point2D(waypointEntry.getValue().x, waypointEntry.getValue().y))) {
+									((FindQuery)query).nearbyObjects.add(waypointEntry.getKey());
+								}
+							} // Check moving objects
+							for (Entry<MovingObject, GraphicalMovingObject> objectEntry : objects.entrySet()) {
+								Text objectIcon = objectEntry.getValue().graphicalIcon;
+								double x = objectIcon.getX() + objectIcon.getTranslateX();
+								double y  = objectIcon.getY() + objectIcon.getTranslateY();
+								if (selectedArea.contains(new Point2D(objectIcon.getX() + objectIcon.getTranslateX(), objectIcon.getY() + objectIcon.getTranslateY()))) { 
+									((FindQuery)query).nearbyObjects.add(objectEntry.getKey());
+								}
+							}
+							ExperimentModel.reportClick((FindQuery)query);
+							System.out.println(nmX + "," + nmY);
+							for (TextObject hitObject: ((FindQuery)query).nearbyObjects) {
+								GraphicalMovingObject movingObj = objects.get(hitObject);
+								if (movingObj != null) {
+									ExperimentModel.reportObjectHit((movingObj.label != null ? movingObj.label.getText() : "No label"), Math.sqrt(Math.pow((nmX-hitObject.x),2) + Math.pow((nmY-hitObject.y), 2)));
+								}
+							}
+							responseReceived = true;
+							hide();
+							if (next != null && loopNumber == loop) {
+								next.execute();
+							}
+						}
+					} else {
+						// Record left or right mouse button click
+						((BinaryQuery)query).respond(e.getButton().equals(MouseButton.PRIMARY), query.startTime-(experimentStartTime-System.currentTimeMillis()));
+						ExperimentModel.reportBinaryQueryResponse((BinaryQuery)query);
+						responseReceived = true;
+						hide();
+						if (next != null && loopNumber == loop) {
+							next.execute();
+						}
+					}
+					
+				});
+			}
+		}
+		
+		@Override
+		public void hide() {
+			root.setOnMouseClicked(null);
+			activeQuery = null;
+			remove();
 		}
 		
 		/**
 		 * Removes the query
 		 */
 		public void remove() {
-			root.getChildren().remove(queryBox);
-			activeQuery = null;
+			Platform.runLater(() -> {
+				root.getChildren().remove(queryBox);
+			});
 			ExperimentModel.reportQuery(query, false);
+			if (query.maskIdentities) {
+				for (GraphicalMovingObject object : objects.values()) {
+					object.maskLabel(false);
+				}
+				ExperimentModel.reportIdentityMask(false);
+			}
+			if (query.freeze) {
+				ExperimentModel.reportFreeze(false);
+				masterTransition.play();
+			}
 		}
 		
 		/**
@@ -738,20 +807,21 @@ public class TrackingActivity extends Application {
 			window.setPadding(new Insets(5));
 			window.setBackground(new Background(new BackgroundFill(Color.WHITE, null, null)));
 			window.setAlignment(Pos.CENTER);
-			window.setMaxWidth(500);
-			window.setMinWidth(500);
-			window.setMaxHeight(280);
-			window.setMinHeight(280);
+			window.setMaxWidth(900);
+			window.setMinWidth(900);
+			window.setMaxHeight(700);
+			window.setMinHeight(700);
 			TextArea textDisplay = new TextArea(dialogText);
 			textDisplay.setEditable(false);
 			textDisplay.setWrapText(true);
+			textDisplay.setMinSize(850, 600);
 			actionButton = new Button(buttonText);
 			actionButton.setMinWidth(100);
 			window.getChildren().addAll(textDisplay, actionButton);
 			Platform.runLater(new Runnable() {
 				@Override
 				public void run() {
-					window.relocate((stageWidth-500)/2, (stageHeight-280)/2);
+					window.relocate((stageWidth-900)/2, (stageHeight-700)/2);
 				}
 			});
 		}

@@ -13,6 +13,9 @@ import java.util.List;
 
 import code.ExperimentModel.*;
 import code.ExperimentModel.MovingObjectLabel.Position;
+import code.TrackingActivity.SchedulableEvent;
+import code.TrackingActivity.GraphicalMaskObject;
+import code.TrackingActivity.GraphicalQueryObject;
 import javafx.scene.paint.Color;
 
 /**
@@ -123,12 +126,15 @@ public class ConfigImporter {
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		/* Import experiment loop count */
 		try {
-			ExperimentModel.loopCount = Integer.parseInt(configLines.get(lineNumber = lineNumbers.next()));
-		} catch (NumberFormatException e) { report("Experiment repeat count must be a whole number greater than 0"); return; }
-		
-		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
-		/* Import experiment duration value */
-		ExperimentModel.duration = parseTime(configLines.get(lineNumber = lineNumbers.next()));
+			if ((ExperimentModel.loopCount = Integer.parseInt(configLines.get(lineNumber = lineNumbers.next()))-1) >= 0) {
+				for (int i=0; i<=ExperimentModel.loopCount; i++) {
+					ExperimentModel.events.add(null);
+				}
+			} else {
+				report("Experiment repeat count must be greater than 0");
+				return;
+			}
+		} catch (NumberFormatException e) { report("Experiment repeat count must be a whole number"); return; }
 		
 		if (!lineNumbers.hasNext()) { report("No values found after this line"); return; }
 		/* Import click radius value */
@@ -441,7 +447,7 @@ public class ConfigImporter {
 			}
 		}
 		/* Import query events and mask events */
-		while (line.startsWith(MASK_PREFIX) || line.startsWith(IDENTITY_MASK_PREFIX) || line.startsWith(QUERY_PREFIX)) {
+		while (line.startsWith(MASK_PREFIX) || line.startsWith(QUERY_PREFIX)) {
 			if (line.startsWith(MASK_PREFIX)) {
 				String[] maskData = line.replace(MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
 				if (maskData.length != 4) {
@@ -467,16 +473,18 @@ public class ConfigImporter {
 					}
 					if (((maskEvent.startTime = parseTime(maskData[1])) == -1) || ((maskEvent.endTime = parseTime(maskData[2])) == -1)) {
 						valid = false;
-					} else if (maskEvent.startTime < 0 || maskEvent.endTime > ExperimentModel.duration) {
-						report("Screen mask appearances must start after the beginning and finish before the end of the experiment");
-						valid = false;
-					}
-					if (maskEvent.conflictsWithOther()) {
-						report("Screen mask event would conflict with another mask event which already exists");
-						valid = false;
+					} else {
+						if (maskEvent.startTime < 0) {
+							report("Screen mask appearances must start after the beginning of the experiment");
+							valid = false;
+						}
+						if (maskEvent.endTime <=0 ) {
+							report("Screen mask duration must be greater than 0 milliseconds");
+							valid = false;
+						}
 					}
 					try {
-						if ((maskEvent.loopNumber = Integer.parseInt(maskData[3])) <= 0 || maskEvent.loopNumber > ExperimentModel.loopCount) {
+						if ((maskEvent.loopNumber = Integer.parseInt(maskData[3])-1) < 0 || maskEvent.loopNumber > ExperimentModel.loopCount) {
 							report("Screen mask loop number must be between 0 and the maximum loop count of the experiment");
 						}
 					} catch (NumberFormatException e) {
@@ -484,50 +492,36 @@ public class ConfigImporter {
 						valid = false;
 					}
 					if (valid) {
-						ExperimentModel.screenMaskEvents.add(maskEvent);
+						SchedulableEvent event = ExperimentModel.events.get(maskEvent.loopNumber);
+						if (event == null) {
+							ExperimentModel.events.set(maskEvent.loopNumber, new GraphicalMaskObject(maskEvent));
+						} else {
+							while (event.next != null) {
+								event = event.next;
+							}
+							event.next = new GraphicalMaskObject(maskEvent);
+						}
 					}
 				} 
-			} else if (line.startsWith(IDENTITY_MASK_PREFIX)) {
-				String[] maskData = line.replace(IDENTITY_MASK_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (maskData.length > 3) {
-					report("Identity mask event data must contain exactly 3 values");
-				} else {
-					IdentityMaskEvent maskEvent = new IdentityMaskEvent();
-					if (((maskEvent.startTime = parseTime(maskData[0])) == -1) || ((maskEvent.endTime = parseTime(maskData[1]) ) == -1)) {
-						report("Screen mask appearances must start after the beginning and finish before the end of the experiment");
-						valid = false;
-					} else if (maskEvent.startTime < 0 || maskEvent.startTime > ExperimentModel.duration || maskEvent.endTime < 0 || maskEvent.endTime > ExperimentModel.duration) {
-						report("Identity mask appearances must start before the beginning and finish before the end of the experiment");
-						valid = false;
-					}
-					try {
-						if ((maskEvent.loopNumber = Integer.parseInt(maskData[2])) <= 0 || maskEvent.loopNumber > ExperimentModel.loopCount) {
-							report("Identity mask loop number must be between 0 and the maximum loop count of the experiment");
-						}
-					} catch (NumberFormatException e) {
-						report("Identity mask loop number must be a numeric value");
-						valid = false;
-					}
-					if (valid) {
-						ExperimentModel.identityMaskEvents.add(maskEvent);
-					}
-				}
 			} else {
 				String[] queryData = line.replace(QUERY_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (queryData.length != 7) {
-					report("Query event data must contain exactly 7 values");
+				if (queryData.length != 9) {
+					report("Query event data must contain exactly 9 values");
 				} else {
 					valid = true;
 					Query query = new Query();
 					switch (queryData[0]) {
 						case "click":
-							query.acceptsText = false;
+							query = new FindQuery();
 							break;
 						case "text":
-							query.acceptsText = true;
+							query = new TextResponseQuery();
+							break;
+						case "yes/no":
+							query = new BinaryQuery();
 							break;
 						default:
-							report("Query type must be either \"click\" or \"text\"");
+							report("Query type must be either \"click\", \"text\", or \"yes/no\"");
 							valid = false;
 					}
 					
@@ -541,19 +535,15 @@ public class ConfigImporter {
 						if ((query.endTime = parseTime(endTime)) == -1) {
 							valid = false;
 						} else {
-							if (query.endTime-query.startTime > ExperimentModel.duration) {
-								report("Query events must end before the end of the experiment");
+							if (query.endTime <= 0) {
 								valid = false;
+								report("Query duration must be greater than 0 milliseconds");
 							}
 						}
 					}
-					if (valid && query.conflictsWithOther()) {
-						report("Query event would conflict with another query event which already exists");
-						valid = false;
-					}
 					try {
-						if ((query.x = Float.parseFloat(queryData[3])) > ExperimentModel.x ||
-								(query.y = Float.parseFloat(queryData[4])) > ExperimentModel.y) {
+						if ((query.positionX = Float.parseFloat(queryData[3])) > ExperimentModel.x ||
+								(query.positionY = Float.parseFloat(queryData[4])) > ExperimentModel.y) {
 							report("Query must be positioned within map boundaries");
 							valid = false;
 						}
@@ -563,16 +553,47 @@ public class ConfigImporter {
 						valid = false;
 					}
 					query.text = queryData[5];
-					if (valid) {
-						ExperimentModel.queries.add(query);
+					switch (queryData[6]) {
+					case "freeze":
+						query.freeze = true;
+						break;
+					case "move":
+						query.freeze = false;
+						break;
+					default:
+						report("Query freeze parameter must be either \"freeze\" or \"move\"");
+						valid = false;
+					}
+					switch(queryData[7]) {
+					case "mask":
+						query.maskIdentities = true;
+						break;
+					case "no-mask":
+						query.maskIdentities = false;
+						break;
+					default:
+						report("Query mask parameter must be either \"mask\" or \"no-mask\"");
+						valid = false;
 					}
 					try {
-						if ((query.loopNumber = Integer.parseInt(queryData[3])) <= 0 || query.loopNumber > ExperimentModel.loopCount) {
-							report("Identity mask loop number must be between 0 and the maximum loop count of the experiment");
+						if ((query.loopNumber = Integer.parseInt(queryData[8])-1) < 0 || query.loopNumber > ExperimentModel.loopCount) {
+							report("Query loop number must be between 0 and the maximum loop count of the experiment");
 						}
 					} catch (NumberFormatException e) {
-						report("Identity mask loop number must be a numeric value");
+						report("Query loop number must be a numeric value");
 						valid = false;
+					}
+					if (valid) {
+						ExperimentModel.queries.add(query);
+						SchedulableEvent event = ExperimentModel.events.get(query.loopNumber);
+						if (event == null) {
+							ExperimentModel.events.set(query.loopNumber, new GraphicalQueryObject(query));
+						} else {
+							while (event.next != null) {
+								event = event.next;
+							}
+							event.next = new GraphicalQueryObject(query);
+						}
 					}
 				}
 			}

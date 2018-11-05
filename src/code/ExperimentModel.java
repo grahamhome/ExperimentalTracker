@@ -11,6 +11,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 
+import code.TrackingActivity.SchedulableEvent;
 import javafx.scene.paint.Color;
 
 /**
@@ -33,9 +34,10 @@ public class ExperimentModel {
 	public static ArrayList<ScreenMaskEvent> screenMaskEvents = new ArrayList<>();
 	public static ArrayList<IdentityMaskEvent> identityMaskEvents = new ArrayList<>();
 	public static ArrayList<Query> queries = new ArrayList<>();
+	public static ArrayList<SchedulableEvent> events = new ArrayList<>();
 	private static StringBuilder report = new StringBuilder();
-	private static long startTime = System.currentTimeMillis();
-	private static String lastClickTime = "";
+	private static long startTime;
+	private static String lastClickTime;
 	
 	private static String getReportFileName() {
 		Calendar cal = Calendar.getInstance();
@@ -69,6 +71,7 @@ public class ExperimentModel {
 		objects = new HashMap<>();
 		screenMaskEvents = new ArrayList<>();
 		queries = new ArrayList<>();
+		events = new ArrayList<>();
 	}
 	
 	/**
@@ -79,7 +82,7 @@ public class ExperimentModel {
 		long hours = elapsedMillis/3600000;
 		long remainder = elapsedMillis%3600000;
 		long minutes = remainder/60000;
-		remainder = remainder%6000;
+		remainder = remainder%60000;
 		long seconds = remainder/1000;
 		long millis = Math.round((double)remainder%1000);
 		
@@ -94,6 +97,34 @@ public class ExperimentModel {
 		return time.toString();
 	}
 	
+	public static void reportFreeze(boolean frozen) {
+		reportTime();
+		report.append("Moving Objects ")
+		.append(frozen ? "Frozen" : "Unfrozen")
+		.append(System.lineSeparator());
+	}
+	
+	public static void reportStatus(boolean started) {
+		if (started) {
+			startTime = System.currentTimeMillis();
+			report.append("00:00:00:000,");
+		} else {
+			reportTime();
+		}
+		report.append("Experiment ")
+		.append(started ? "Started" : "Stopped")
+		.append(System.lineSeparator());
+	}
+	
+	public static void reportLoop(int loopNumber) {
+		reportTime();
+		report.append("Loop ")
+		.append(loopNumber)
+		.append(" Started")
+		.append(",")
+		.append(System.lineSeparator());
+	}
+	
 	/**
 	 * Add the appearance or disappearance of a screen mask to the experiment report.
 	 * @param mask : The ScreenMaskEvent to report.
@@ -101,12 +132,11 @@ public class ExperimentModel {
 	 */
 	public static void reportMask(ScreenMaskEvent mask, boolean show) {
 		reportTime();
-		report.append("Mask Event");
-		report.append(",");
-		report.append(show ? "Appearance" : "Disappearance");
-		report.append(",");
-		report.append(mask.image.getName());
-		report.append(System.lineSeparator());
+		report.append("Mask ")
+		.append(show ? "Appearance" : "Disappearance")
+		.append(",")
+		.append(mask.image.getName())
+		.append(System.lineSeparator());
 	}
 	
 	/**
@@ -114,12 +144,11 @@ public class ExperimentModel {
 	 * @param mask : The IdentityMaskEvent to report.
 	 * @param start : True to log the mask appearance, false to log the mask disappearance.
 	 */
-	public static void reportIdentityMask(IdentityMaskEvent mask, boolean show) {
+	public static void reportIdentityMask(boolean show) {
 		reportTime();
-		report.append("Identity Mask Event");
-		report.append(",");
-		report.append(show ? "Appearance" : "Disappearance");
-		report.append(System.lineSeparator());
+		report.append("Identity Mask ")
+		.append(show ? "Appearance" : "Disappearance")
+		.append(System.lineSeparator());
 	}
 	
 	/**
@@ -128,38 +157,50 @@ public class ExperimentModel {
 	 * @param show : True to log the query appearance, false to log the query disappearance.
 	 */
 	public static void reportQuery(Query query, boolean show) {
-		String queryTime = reportTime();
-		report.append(query.acceptsText ? "Text Query " : "Click Query ");
-		report.append(show ? "Appearance" : "Disappearance");
-		report.append(",");
-		report.append(query.text.replaceAll(",", ""));
-		report.append(System.lineSeparator());
+		reportTime();
+		report.append(query instanceof FindQuery ? "Click Query " : 
+			query instanceof TextResponseQuery ? "Text Query " : "Yes/No Query ")
+		.append(show ? "Appearance" : "Disappearance")
+		.append(",")
+		.append(query.text)
+		.append(System.lineSeparator());
 	}
 	
 	/**
 	 * Add a text entry to the experiment report.
 	 * @param value : The text entered by the user.
 	 */
-	public static void reportTextEntry(String value) {
+	public static void reportTextEntry(TextResponseQuery query) {
 		reportTime();
-		report.append("Text Entry");
-		report.append(",");
-		report.append(value.replaceAll(",", ""));
-		report.append(System.lineSeparator());
+		report.append("Text Entry")
+		.append(",")
+		.append(query.value.replaceAll(",", ""))
+		.append(System.lineSeparator());
 	}
 	
 	/**
 	 * Add a click event to the experiment report.
 	 * @param click : The Click to report.
 	 */
-	public static void reportClick(Query.Click click) {
+	public static void reportClick(FindQuery query) {
 		lastClickTime = reportTime();
-		report.append("Click");
-		report.append(",");
-		report.append(click.x);
-		report.append(",");
-		report.append(click.y);
-		report.append(System.lineSeparator());
+		report.append("Click")
+		.append(",")
+		.append(String.format("%2.3f", query.x))
+		.append(",")
+		.append(String.format("%2.3f",query.y))
+		.append(System.lineSeparator());
+	}
+	
+	/**
+	 * Add a yes/no response event to the experiment report.
+	 */
+	public static void reportBinaryQueryResponse(BinaryQuery query) {
+		reportTime();
+		report.append("Yes/No Response")
+		.append(",")
+		.append(query.response ? "Yes" : "No")
+		.append(System.lineSeparator());
 	}
 	
 	/**
@@ -167,14 +208,14 @@ public class ExperimentModel {
 	 * @param label : The text of the object's label.
 	 * @param distance : The distance to the object from the click location.
 	 */
-	public static void reportObjectHit(String label, float distance) {
-		report.append(lastClickTime);
-		report.append("Object Hit");
-		report.append(",");
-		report.append(label);
-		report.append(",");
-		report.append(distance);
-		report.append(System.lineSeparator());
+	public static void reportObjectHit(String label, double distance) {
+		report.append(lastClickTime)
+		.append("Object Hit")
+		.append(",")
+		.append(label)
+		.append(",")
+		.append(String.format("%2.3f", distance))
+		.append(System.lineSeparator());
 	}
 	
 	/**
@@ -183,10 +224,10 @@ public class ExperimentModel {
 	 */
 	public static void reportIdentityViewed(String label) {
 		reportTime();
-		report.append("Object Identity Viewed");
-		report.append(",");
-		report.append(label);
-		report.append(System.lineSeparator());
+		report.append("Object Identity Viewed")
+		.append(",")
+		.append(label)
+		.append(System.lineSeparator());
 	}
 	
 	/**
@@ -194,16 +235,16 @@ public class ExperimentModel {
 	 */
 	public static void writeReport() {
 		String commonHeader = "Time (all events), Event Type (all events)" + System.lineSeparator();
-		String maskHeader = ",,Appearance/Disappearance (mask events),Mask Image Name (mask events)" + System.lineSeparator();
-		String queryHeader = ",,Appearance/Disappearance (query events),Query Text (query events)" + System.lineSeparator();
-		String identityMaskHeader = ",,Appearance/Disappearance (identity mask events)" + System.lineSeparator();
+		String maskHeader = ",Mask Image Name (mask events)" + System.lineSeparator();
+		String queryHeader = ",,Query Text (query events)" + System.lineSeparator();
 		String textEntryHeader = ",,Text Entered (text entry events)" + System.lineSeparator();
 		String clickHeader = ",,X Value in Nautical Miles (click events),Y value in Nautical Miles (click events)" + System.lineSeparator();
-		String hitHeader =",,Label of Hit Object (object hit events),Distance to Object Center in Nautical Miles (object hit events)" + System.lineSeparator();
+		String hitHeader =",,Label of Hit Object (object hit events),Distance to Object in Nautical Miles (object hit events)" + System.lineSeparator();
 		String identityViewedEvent = ",,Label of Object Viewed (identity viewed events)" + System.lineSeparator();
+		String binaryResponseHeader = ",,Response" + System.lineSeparator();
 		try {
 			PrintWriter reportWriter = new PrintWriter(getReportFileName(), "UTF-8");
-			for (String header : Arrays.asList(commonHeader, maskHeader, queryHeader, identityMaskHeader, textEntryHeader, clickHeader, hitHeader, identityViewedEvent)) {
+			for (String header : Arrays.asList(commonHeader, maskHeader, queryHeader, textEntryHeader, clickHeader, binaryResponseHeader, hitHeader, identityViewedEvent)) {
 				reportWriter.write(header);
 			}
 			reportWriter.write(report.toString());
@@ -370,13 +411,12 @@ public class ExperimentModel {
 	 */
 	public static class Query {
 		public String text;
-		public boolean acceptsText; // If false, accepts a mouse click as input
-		public double startTime, endTime;
+		public double startTime, endTime, responseTime;
 		public boolean wait = false;
-		public float x, y;
-		public Click responseClick;
-		public TextEntry responseText;
 		public int loopNumber;
+		public boolean freeze = false; // Whether or not the moving objects should be frozen during the query
+		public float positionX, positionY;
+		public boolean maskIdentities = false;
 		
 		/**
 		 * Determines if one Query conflicts (overlaps) with any other by comparing their start and end times.
@@ -387,35 +427,38 @@ public class ExperimentModel {
 					((!wait) && ((startTime > e.endTime) && (endTime < e.startTime))));
 		}
 		
-		/**
-		 * Represents a click performed in response to a query.
-		 */
-		public class Click {
-			public double time;
-			public float x, y;
-			public ArrayList<TextObject> nearbyObjects;
-			
-			public Click(float x, float y, double time) {
-				this.x = x;
-				this.y = y;
-				this.time = time - startTime;
-				nearbyObjects = new ArrayList<>();
-			}
+		public void setResponseTime(double time) {
+			responseTime = time;
 		}
+	}
+	
+	public static class FindQuery extends Query {
+		public float x, y;
+		public ArrayList<TextObject> nearbyObjects = new ArrayList<>();
 		
-		/**
-		 * Represents a text entry given in response to a query.
-		 */
-		public class TextEntry {
-			public double time;
-			public String value;
-			
-			public TextEntry(String value, double time) {
-				this.value = value;
-				this.time = time;
-			}
+		public void respond(float x, float y, double time) {
+			this.x = x;
+			this.y = y;
+			super.setResponseTime(time);
 		}
+	}
+	
+	public static class TextResponseQuery extends Query {
+		public String value;
 		
+		public void respond(String value, double time) {
+			this.value = value;
+			super.setResponseTime(time);
+		}
+	}
+	
+	public static class BinaryQuery extends Query {
+		public Boolean response;
+		
+		public void respond(boolean result, double time) {
+			this.response = result;
+			super.setResponseTime(time);
+		}
 	}
 	
 	
