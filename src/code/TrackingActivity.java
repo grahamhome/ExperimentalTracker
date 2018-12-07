@@ -131,7 +131,11 @@ public class TrackingActivity extends Application {
 			masterTransition.play();
 			SchedulableEvent event = ExperimentModel.events.get(loop);
 			if (event != null) {
-				event.execute();
+				if (event instanceof GraphicalMaskObject) {
+					((GraphicalMaskObject)event).execute();
+				} else {
+					event.execute();
+				}
 			}
 			masterTransition.setOnFinished(new EventHandler<ActionEvent>() {
 
@@ -158,7 +162,11 @@ public class TrackingActivity extends Application {
 						masterTransition.play();
 						SchedulableEvent nextEvent = ExperimentModel.events.get(loop);
 						if (nextEvent != null) {
-							nextEvent.execute();
+							if (nextEvent instanceof GraphicalMaskObject) {
+								((GraphicalMaskObject)nextEvent).execute();
+							} else {
+								nextEvent.execute();
+							}
 						}
 					}
 					
@@ -542,7 +550,7 @@ public class TrackingActivity extends Application {
 						show();
 					}
 					if (scheduledTermination) {
-						// Schedule mask removal
+						// Schedule event removal
 						ScheduledExecutorService removeMaskService = Executors.newSingleThreadScheduledExecutor();
 						removeMaskService.schedule(new Runnable() {
 							@Override
@@ -550,7 +558,11 @@ public class TrackingActivity extends Application {
 								if (!responseReceived) {
 									hide();
 									if (next != null && loopNumber == loop) {
-										next.execute();
+										if (next instanceof GraphicalMaskObject) {
+											((GraphicalMaskObject)next).execute();
+										} else {
+											next.execute();
+										}
 									}
 								}
 							}
@@ -572,6 +584,7 @@ public class TrackingActivity extends Application {
 		private ImageView mask;
 		private ScreenMaskEvent maskEvent;
 		private Rectangle maskBackground;
+		public ArrayList<GraphicalQueryObject> concurrentEvents = new ArrayList<>();
 		
 		/**
 		 * Constructs a graphical representation of a mask event and
@@ -588,6 +601,12 @@ public class TrackingActivity extends Application {
 			delay = (long)maskEvent.startTime;
 			duration = (long)(maskEvent.endTime-maskEvent.startTime);
 			scheduledTermination = true;
+		}
+		
+		@Override
+		public void execute() {
+			super.execute();
+			concurrentEvents.stream().forEach(e -> e.execute());
 		}
 		
 		@Override
@@ -611,6 +630,7 @@ public class TrackingActivity extends Application {
 				root.getChildren().removeAll(maskBackground, mask);
 				ExperimentModel.reportMask(maskEvent, false);
 			});
+			concurrentEvents.stream().forEach(e -> e.hide());
 		}
 			
 	}
@@ -672,6 +692,7 @@ public class TrackingActivity extends Application {
 				queryBox.relocate(((query.positionX*(mapWidth/ExperimentModel.x))+mapOffsetX)-(queryBox.getWidth()/2), 
 						((query.positionY*(mapHeight/ExperimentModel.y))+mapOffsetY)-(query instanceof TextResponseQuery ? 20 : 10));
 				root.getChildren().add(queryBox);
+				queryBox.toFront();
 			});
 			if (query.maskIdentities) {
 				for (GraphicalMovingObject object : objects.values()) {
@@ -760,19 +781,21 @@ public class TrackingActivity extends Application {
 		 * Removes the query
 		 */
 		public void remove() {
-			Platform.runLater(() -> {
-				root.getChildren().remove(queryBox);
-			});
-			ExperimentModel.reportQuery(query, false);
-			if (query.maskIdentities) {
-				for (GraphicalMovingObject object : objects.values()) {
-					object.maskLabel(false);
+			if (root.getChildren().contains(queryBox)) {
+				Platform.runLater(() -> {
+					root.getChildren().remove(queryBox);
+				});
+				ExperimentModel.reportQuery(query, false);
+				if (query.maskIdentities) {
+					for (GraphicalMovingObject object : objects.values()) {
+						object.maskLabel(false);
+					}
+					ExperimentModel.reportIdentityMask(false);
 				}
-				ExperimentModel.reportIdentityMask(false);
-			}
-			if (query.freeze) {
-				ExperimentModel.reportFreeze(false);
-				masterTransition.play();
+				if (query.freeze) {
+					ExperimentModel.reportFreeze(false);
+					masterTransition.play();
+				}
 			}
 		}
 		

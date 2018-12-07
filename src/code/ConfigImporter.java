@@ -478,7 +478,7 @@ public class ConfigImporter {
 							report("Screen mask appearances must start after the beginning of the experiment");
 							valid = false;
 						}
-						if (maskEvent.endTime <=0 ) {
+						if (maskEvent.endTime <= 0 ) {
 							report("Screen mask duration must be greater than 0 milliseconds");
 							valid = false;
 						}
@@ -505,8 +505,8 @@ public class ConfigImporter {
 				} 
 			} else {
 				String[] queryData = line.replace(QUERY_PREFIX, "").split(PRIMARY_SEPARATOR);
-				if (queryData.length != 9) {
-					report("Query event data must contain exactly 9 values");
+				if (queryData.length != 10) {
+					report("Query event data must contain exactly 10 values");
 				} else {
 					valid = true;
 					Query query = new Query();
@@ -583,16 +583,47 @@ public class ConfigImporter {
 						report("Query loop number must be a numeric value");
 						valid = false;
 					}
+					if (!(queryData[9].equals("c") || queryData[9].equals("i"))) {
+						report("Query must be marked as \"concurrent\" (c) or \"independent\" (i) of a mask event");
+						valid = false;
+					}
 					if (valid) {
-						ExperimentModel.queries.add(query);
-						SchedulableEvent event = ExperimentModel.events.get(query.loopNumber);
-						if (event == null) {
-							ExperimentModel.events.set(query.loopNumber, new GraphicalQueryObject(query));
-						} else {
-							while (event.next != null) {
-								event = event.next;
+ 						if (queryData[9].equals("c")) {
+ 							boolean validConcurrent = true;
+							SchedulableEvent event = ExperimentModel.events.get(query.loopNumber);
+							if (event == null) {
+								validConcurrent = false;
+							} else {
+								while (event.next != null) {
+									event = event.next;
+								}
+								if (!(event instanceof GraphicalMaskObject )) {
+									validConcurrent = false;
+								} else {
+									GraphicalMaskObject maskEvent = (GraphicalMaskObject)event;
+									if ((query.startTime > maskEvent.duration) || (!query.wait && query.endTime - query.startTime > maskEvent.duration)) {
+										report("Concurrent queries must start and end while the mask they appear over is still visible");
+									} else {
+										// Add mask delay to query delay (since both delayed actions will be initiated at the same time)
+										query.startTime += maskEvent.delay;
+										maskEvent.concurrentEvents.add(new GraphicalQueryObject(query));
+									}
+								}
 							}
-							event.next = new GraphicalQueryObject(query);
+							if (!validConcurrent) {
+								report("Queries marked as \"concurrent\" must be preceeded in the config file by a screen mask appearance");
+							}
+						} else {
+							ExperimentModel.queries.add(query);
+							SchedulableEvent event = ExperimentModel.events.get(query.loopNumber);
+							if (event == null) {
+								ExperimentModel.events.set(query.loopNumber, new GraphicalQueryObject(query));
+							} else {
+								while (event.next != null) {
+									event = event.next;
+								}
+								event.next = new GraphicalQueryObject(query);
+							}
 						}
 					}
 				}
