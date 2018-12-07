@@ -13,9 +13,6 @@ import java.util.List;
 
 import code.ExperimentModel.*;
 import code.ExperimentModel.MovingObjectLabel.Position;
-import code.TrackingActivity.SchedulableEvent;
-import code.TrackingActivity.GraphicalMaskObject;
-import code.TrackingActivity.GraphicalQueryObject;
 import javafx.scene.paint.Color;
 
 /**

@@ -3,20 +3,17 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import code.TrackingActivity.SchedulableEvent;
 import javafx.scene.paint.Color;
 
 /**
  * This class represents the configuration for an MIT experiment.
- * @author Graham Home <grahamhome333@gmail.com>
+ * @author Graham Home
  */
 public class ExperimentModel {
 	
@@ -35,24 +32,8 @@ public class ExperimentModel {
 	public static ArrayList<IdentityMaskEvent> identityMaskEvents = new ArrayList<>();
 	public static ArrayList<Query> queries = new ArrayList<>();
 	public static ArrayList<SchedulableEvent> events = new ArrayList<>();
-	private static StringBuilder report = new StringBuilder();
-	private static long startTime;
-	private static String lastClickTime;
-	
-	private static String getReportFileName() {
-		Calendar cal = Calendar.getInstance();
-		return new StringBuilder()
-				.append(cal.get(Calendar.MONTH)+1)
-				.append("-")
-				.append(cal.get(Calendar.DAY_OF_MONTH))
-				.append("-")
-				.append(cal.get(Calendar.YEAR))
-				.append("-")
-				.append(name)
-				.append("-")
-				.append(participantId)
-				.append(".csv").toString();
-	}
+	static long startTime;
+	static String lastClickTime;
 	
 	/**
 	 * Resets the configuration to its initial state.
@@ -73,188 +54,6 @@ public class ExperimentModel {
 		queries = new ArrayList<>();
 		events = new ArrayList<>();
 	}
-	
-	/**
-	 * Add the elapsed time to the current line of the experiment report.
-	 */
-	private static String reportTime() {
-		long elapsedMillis = System.currentTimeMillis()-startTime;
-		long hours = elapsedMillis/3600000;
-		long remainder = elapsedMillis%3600000;
-		long minutes = remainder/60000;
-		remainder = remainder%60000;
-		long seconds = remainder/1000;
-		long millis = Math.round((double)remainder%1000);
-		
-		StringBuilder time = new StringBuilder();
-		for (long value : Arrays.asList(hours, minutes, seconds)) {
-			time.append(value > 0 ? value : "00");
-			time.append(":");
-		}
-		time.append(millis > 0 ? millis : "000");
-		time.append(",");
-		report.append(time.toString());
-		return time.toString();
-	}
-	
-	public static void reportFreeze(boolean frozen) {
-		reportTime();
-		report.append("Moving Objects ")
-		.append(frozen ? "Frozen" : "Unfrozen")
-		.append(System.lineSeparator());
-	}
-	
-	public static void reportStatus(boolean started) {
-		if (started) {
-			startTime = System.currentTimeMillis();
-			report.append("00:00:00:000,");
-		} else {
-			reportTime();
-		}
-		report.append("Experiment ")
-		.append(started ? "Started" : "Stopped")
-		.append(System.lineSeparator());
-	}
-	
-	public static void reportLoop(int loopNumber) {
-		reportTime();
-		report.append("Loop ")
-		.append(loopNumber)
-		.append(" Started")
-		.append(",")
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add the appearance or disappearance of a screen mask to the experiment report.
-	 * @param mask : The ScreenMaskEvent to report.
-	 * @param start : True to log the mask appearance, false to log the mask disappearance.
-	 */
-	public static void reportMask(ScreenMaskEvent mask, boolean show) {
-		reportTime();
-		report.append("Mask ")
-		.append(show ? "Appearance" : "Disappearance")
-		.append(",")
-		.append(mask.image.getName())
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add the appearance or disappearance of an identity mask to the experiment report.
-	 * @param mask : The IdentityMaskEvent to report.
-	 * @param start : True to log the mask appearance, false to log the mask disappearance.
-	 */
-	public static void reportIdentityMask(boolean show) {
-		reportTime();
-		report.append("Identity Mask ")
-		.append(show ? "Appearance" : "Disappearance")
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add the appearance or disappearance of a query to the experiment report.
-	 * @param query : The QueryEvent to report.
-	 * @param show : True to log the query appearance, false to log the query disappearance.
-	 */
-	public static void reportQuery(Query query, boolean show) {
-		reportTime();
-		report.append(query instanceof FindQuery ? "Click Query " : 
-			query instanceof TextResponseQuery ? "Text Query " : "Yes/No Query ")
-		.append(show ? "Appearance" : "Disappearance")
-		.append(",")
-		.append(query.text)
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add a text entry to the experiment report.
-	 * @param value : The text entered by the user.
-	 */
-	public static void reportTextEntry(TextResponseQuery query) {
-		reportTime();
-		report.append("Text Entry")
-		.append(",")
-		.append(query.value.replaceAll(",", ""))
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add a click event to the experiment report.
-	 * @param click : The Click to report.
-	 */
-	public static void reportClick(FindQuery query) {
-		lastClickTime = reportTime();
-		report.append("Click")
-		.append(",")
-		.append(String.format("%2.3f", query.x))
-		.append(",")
-		.append(String.format("%2.3f",query.y))
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add a yes/no response event to the experiment report.
-	 */
-	public static void reportBinaryQueryResponse(BinaryQuery query) {
-		reportTime();
-		report.append("Yes/No Response")
-		.append(",")
-		.append(query.response ? "Yes" : "No")
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add an Object Hit event to the experiment report.
-	 * @param label : The text of the object's label.
-	 * @param distance : The distance to the object from the click location.
-	 */
-	public static void reportObjectHit(String label, double distance) {
-		report.append(lastClickTime)
-		.append("Object Hit")
-		.append(",")
-		.append(label)
-		.append(",")
-		.append(String.format("%2.3f", distance))
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Add an Identity Viewed event to the experiment report.
-	 * @param label : The text of the object's label.
-	 */
-	public static void reportIdentityViewed(String label) {
-		reportTime();
-		report.append("Object Identity Viewed")
-		.append(",")
-		.append(label)
-		.append(System.lineSeparator());
-	}
-	
-	/**
-	 * Writes the report to the report file.
-	 */
-	public static void writeReport() {
-		String commonHeader = "Time (all events), Event Type (all events)" + System.lineSeparator();
-		String maskHeader = ",Mask Image Name (mask events)" + System.lineSeparator();
-		String queryHeader = ",,Query Text (query events)" + System.lineSeparator();
-		String textEntryHeader = ",,Text Entered (text entry events)" + System.lineSeparator();
-		String clickHeader = ",,X Value in Nautical Miles (click events),Y value in Nautical Miles (click events)" + System.lineSeparator();
-		String hitHeader =",,Label of Hit Object (object hit events),Distance to Object in Nautical Miles (object hit events)" + System.lineSeparator();
-		String identityViewedEvent = ",,Label of Object Viewed (identity viewed events)" + System.lineSeparator();
-		String binaryResponseHeader = ",,Response" + System.lineSeparator();
-		try {
-			PrintWriter reportWriter = new PrintWriter(getReportFileName(), "UTF-8");
-			for (String header : Arrays.asList(commonHeader, maskHeader, queryHeader, textEntryHeader, clickHeader, binaryResponseHeader, hitHeader, identityViewedEvent)) {
-				reportWriter.write(header);
-			}
-			reportWriter.write(report.toString());
-			reportWriter.close();
-		} catch (FileNotFoundException | UnsupportedEncodingException e) {
-			e.printStackTrace();
-		}
-		
-	}
-	
 	
 	/**
 	 * Contains attributes common to all objects depicted as text or icons.

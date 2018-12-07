@@ -161,7 +161,7 @@ public class ConfigImportActivity extends Application {
 	 * Writes the report and closes the experiment
 	 */
 	public static void exit() {
-		ExperimentModel.writeReport();
+		ReportWriter.writeReport();
 		System.exit(0);
 	}
 
