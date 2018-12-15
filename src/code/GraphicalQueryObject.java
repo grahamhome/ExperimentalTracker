@@ -1,14 +1,9 @@
 package code;
 
-import java.util.Map.Entry;
-
 import code.ExperimentModel.BinaryQuery;
 import code.ExperimentModel.FindQuery;
-import code.ExperimentModel.MovingObject;
 import code.ExperimentModel.Query;
-import code.ExperimentModel.TextObject;
 import code.ExperimentModel.TextResponseQuery;
-import code.ExperimentModel.WaypointObject;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
