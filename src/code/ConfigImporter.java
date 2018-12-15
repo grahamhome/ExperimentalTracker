@@ -34,7 +34,6 @@ public class ConfigImporter {
 	private static final String MOVER_PREFIX = "MV: ";
 	private static final String LABEL_PREFIX = "LB: ";
 	private static final String MASK_PREFIX = "MK: ";
-	private static final String IDENTITY_MASK_PREFIX = "IM: ";
 	private static final String QUERY_PREFIX = "QR: ";
 	private static final String IMG_DIR = "/images/";
 	/* Valid image formats */
