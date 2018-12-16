@@ -93,6 +93,11 @@ so your stakeholders can use it.
 It is a good idea to go ahead and fork this project into your own GitHub repository before beginning to work on it. That way, the original repo 
 will still be here should you need to revert back to the original version for any reason.
 
+#### Debugging
+
+In order to run this program in debug mode, you will need to temporarily disable fullscreen mode. At least with Eclipse, debugging in fullscreen mode 
+does not work. To do this, simply comment out Line 58 of the TrackingActivity class. Don't forget to un-comment it when you're done!
+
 #### Phone A Friend
 
 I am more than happy to answer any questions you may have about this codebase and provide advice on how to proceed with any changes. Please don't 
